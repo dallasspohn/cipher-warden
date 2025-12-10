@@ -636,13 +636,13 @@ MAIN_TEMPLATE = """
             </div>
             {% for folder in folders %}
             <div class="folder-container" data-folder-id="{{ folder.id }}">
-                <button type="button" class="folder-btn" onclick="filterByFolder('{{ folder.id }}', this)">
+                <button type="button" class="folder-btn" onclick="console.log('Folder clicked:', '{{ folder.id }}'); if(typeof filterByFolder === 'function') { filterByFolder('{{ folder.id }}', this); } else { alert('filterByFolder not found'); }">
                     📂 {{ folder.name }}
                     <div class="count">{{ folder.count }} items</div>
                 </button>
                 <div class="folder-actions">
-                    <button type="button" class="folder-edit" onclick="openEditFolderModal('{{ folder.id }}', {{ folder.name|tojson }})">Edit</button>
-                    <button type="button" class="folder-delete" onclick="deleteFolder('{{ folder.id }}', {{ folder.name|tojson }}, {{ folder.count }})">Delete</button>
+                    <button type="button" class="folder-edit" onclick="console.log('Edit folder clicked'); if(typeof openEditFolderModal === 'function') { openEditFolderModal('{{ folder.id }}', {{ folder.name|tojson }}); } else { alert('openEditFolderModal not found'); }">Edit</button>
+                    <button type="button" class="folder-delete" onclick="console.log('Delete folder clicked'); if(typeof deleteFolder === 'function') { deleteFolder('{{ folder.id }}', {{ folder.name|tojson }}, {{ folder.count }}); } else { alert('deleteFolder not found'); }">Delete</button>
                 </div>
             </div>
             {% endfor %}
@@ -692,9 +692,9 @@ MAIN_TEMPLATE = """
                             {% endif %}
                         </div>
                         <div class="item-actions">
-                            <button type="button" onclick="try { openEditModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}, {{ (item.uri or '')|tojson }}, {{ (item.username or '')|tojson }}, {{ (item.password or '')|tojson }}, {{ (item.notes or '')|tojson }}); } catch(e) { alert('Error: ' + e.message); }">Edit</button>
-                            <button type="button" onclick="try { openMoveModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}); } catch(e) { alert('Error: ' + e.message); }">Move</button>
-                            <button type="button" class="delete" onclick="try { deleteItem('{{ item.id }}', {{ item.name|tojson }}); } catch(e) { alert('Error: ' + e.message); }">Delete</button>
+                            <button type="button" onclick="console.log('Edit clicked'); if(typeof openEditModal === 'function') { openEditModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}, {{ (item.uri or '')|tojson }}, {{ (item.username or '')|tojson }}, {{ (item.password or '')|tojson }}, {{ (item.notes or '')|tojson }}); } else { alert('openEditModal not found'); }">Edit</button>
+                            <button type="button" onclick="console.log('Move clicked'); if(typeof openMoveModal === 'function') { openMoveModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}); } else { alert('openMoveModal not found'); }">Move</button>
+                            <button type="button" class="delete" onclick="console.log('Delete clicked'); if(typeof deleteItem === 'function') { deleteItem('{{ item.id }}', {{ item.name|tojson }}); } else { alert('deleteItem not found'); }">Delete</button>
                         </div>
                     </div>
 
@@ -703,7 +703,7 @@ MAIN_TEMPLATE = """
                         <div class="cred-row">
                             <span class="cred-label">Username</span>
                             <span class="cred-value">{{ item.username }}</span>
-                            <button type="button" class="copy-btn" onclick="copyToClipboard({{ item.username|tojson }}, this)">Copy</button>
+                            <button type="button" class="copy-btn" onclick="console.log('Copy username clicked'); if(typeof copyToClipboard === 'function') { copyToClipboard({{ item.username|tojson }}, this); } else { alert('copyToClipboard not found'); }">Copy</button>
                         </div>
                         {% endif %}
 
@@ -711,7 +711,7 @@ MAIN_TEMPLATE = """
                         <div class="cred-row">
                             <span class="cred-label">Password</span>
                             <span class="cred-value password" title="Click to reveal">{{ item.password }}</span>
-                            <button type="button" class="copy-btn" onclick="copyToClipboard({{ item.password|tojson }}, this)">Copy</button>
+                            <button type="button" class="copy-btn" onclick="console.log('Copy password clicked'); if(typeof copyToClipboard === 'function') { copyToClipboard({{ item.password|tojson }}, this); } else { alert('copyToClipboard not found'); }">Copy</button>
                         </div>
                         {% endif %}
                     </div>
