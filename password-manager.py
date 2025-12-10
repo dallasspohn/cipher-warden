@@ -257,76 +257,25 @@ MAIN_TEMPLATE = """
             gap: 15px;
             margin-bottom: 30px;
         }
-        .folder-container {
+        .folder-btn {
             background: white;
             padding: 15px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
-            transition: all 0.2s;
-            position: relative;
-        }
-        .folder-container:hover {
-            border-color: #667eea;
-            background: #f0f4ff;
-        }
-        .folder-container.active {
-            border-color: #667eea;
-            background: #f0f4ff;
-        }
-        .folder-btn {
-            background: none;
-            border: none;
             cursor: pointer;
+            transition: all 0.2s;
             text-align: left;
             font-size: 14px;
             color: #333;
-            width: 100%;
-            padding: 0;
+        }
+        .folder-btn:hover, .folder-btn.active {
+            border-color: #667eea;
+            background: #f0f4ff;
         }
         .folder-btn .count {
             color: #999;
             font-size: 12px;
             margin-top: 5px;
-        }
-        .folder-actions {
-            display: flex;
-            gap: 5px;
-            margin-top: 8px;
-            justify-content: flex-end;
-        }
-        .folder-actions button {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 11px;
-        }
-        .folder-actions button:hover {
-            background: #5a6268;
-        }
-        .folder-actions button.folder-delete {
-            background: #dc3545;
-        }
-        .folder-actions button.folder-delete:hover {
-            background: #c82333;
-        }
-        .add-folder-btn {
-            background: white;
-            padding: 15px;
-            border: 2px dashed #667eea;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-align: center;
-            font-size: 14px;
-            color: #667eea;
-            font-weight: 500;
-        }
-        .add-folder-btn:hover {
-            background: #f0f4ff;
-            border-color: #5568d3;
         }
         .items {
             display: grid;
@@ -624,27 +573,16 @@ MAIN_TEMPLATE = """
         </div>
 
         <div class="folders">
-            <div class="folder-container active">
-                <button type="button" class="folder-btn" data-action="filter-folder" data-folder-id="">
-                    📁 All Items
-                    <div class="count">{{ total_items }} items</div>
-                </button>
-            </div>
+            <button class="folder-btn active" onclick="filterByFolder(null, this)">
+                📁 All Items
+                <div class="count">{{ total_items }} items</div>
+            </button>
             {% for folder in folders %}
-            <div class="folder-container" data-folder-id="{{ folder.id }}" data-folder-name="{{ folder.name|e }}" data-folder-count="{{ folder.count }}">
-                <button type="button" class="folder-btn" data-action="filter-folder" data-folder-id="{{ folder.id }}">
-                    📂 {{ folder.name }}
-                    <div class="count">{{ folder.count }} items</div>
-                </button>
-                <div class="folder-actions">
-                    <button type="button" class="folder-edit" data-action="edit-folder" data-folder-id="{{ folder.id }}" data-folder-name="{{ folder.name|e }}">Edit</button>
-                    <button type="button" class="folder-delete" data-action="delete-folder" data-folder-id="{{ folder.id }}" data-folder-name="{{ folder.name|e }}" data-folder-count="{{ folder.count }}">Delete</button>
-                </div>
-            </div>
+            <button class="folder-btn" onclick="filterByFolder('{{ folder.id }}', this)">
+                📂 {{ folder.name }}
+                <div class="count">{{ folder.count }} items</div>
+            </button>
             {% endfor %}
-            <div class="add-folder-btn" data-action="add-folder">
-                ➕ Add Folder
-            </div>
         </div>
 
         <div class="items" id="itemsList">
@@ -655,15 +593,7 @@ MAIN_TEMPLATE = """
                 <div class="item {% if age_warning == 'critical' %}age-critical{% elif age_warning == 'warning' %}age-warning{% endif %}"
                      data-folder="{{ item.folder_id or '' }}"
                      data-name="{{ item.name.lower() }}"
-                     data-username="{{ (item.username or '').lower() }}"
-                     data-item-id="{{ item.id }}"
-                     data-item-name="{{ item.name|e }}"
-                     data-item-folder="{{ item.folder_id or '' }}"
-                     data-item-uri="{{ (item.uri or '')|e }}"
-                     data-item-username="{{ (item.username or '')|e }}"
-                     data-item-password="{{ (item.password or '')|e }}"
-                     data-item-notes="{{ (item.notes or '')|e }}"
-                     data-item-favorite="{{ item.favorite }}">
+                     data-username="{{ (item.username or '').lower() }}">
 
                     {% if age_warning %}
                     <div class="age-badge {{ age_warning }}">
@@ -678,7 +608,7 @@ MAIN_TEMPLATE = """
                     <div class="item-header">
                         <div class="item-title">
                             <div class="item-name">
-                                <button type="button" class="favorite" data-action="toggle-favorite">
+                                <button type="button" class="favorite" onclick="toggleFavorite('{{ item.id }}', {{ item.favorite }})">
                                     {% if item.favorite %}⭐{% else %}☆{% endif %}
                                 </button>
                                 {{ item.name }}
@@ -688,9 +618,9 @@ MAIN_TEMPLATE = """
                             {% endif %}
                         </div>
                         <div class="item-actions">
-                            <button type="button" class="btn-edit" data-action="edit">Edit</button>
-                            <button type="button" class="btn-move" data-action="move">Move</button>
-                            <button type="button" class="btn-delete delete" data-action="delete">Delete</button>
+                            <button type="button" onclick="openEditModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}, {{ (item.uri or '')|tojson }}, {{ (item.username or '')|tojson }}, {{ (item.password or '')|tojson }}, {{ (item.notes or '')|tojson }})">Edit</button>
+                            <button type="button" onclick="openMoveModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }})">Move</button>
+                            <button type="button" class="delete" onclick="deleteItem('{{ item.id }}', {{ item.name|tojson }})">Delete</button>
                         </div>
                     </div>
 
@@ -699,7 +629,7 @@ MAIN_TEMPLATE = """
                         <div class="cred-row">
                             <span class="cred-label">Username</span>
                             <span class="cred-value">{{ item.username }}</span>
-                            <button type="button" class="copy-btn" data-copy-text="{{ item.username|e }}">Copy</button>
+                            <button class="copy-btn" onclick="copyToClipboard({{ item.username|tojson }}, this)">Copy</button>
                         </div>
                         {% endif %}
 
@@ -707,7 +637,7 @@ MAIN_TEMPLATE = """
                         <div class="cred-row">
                             <span class="cred-label">Password</span>
                             <span class="cred-value password" title="Click to reveal">{{ item.password }}</span>
-                            <button type="button" class="copy-btn" data-copy-text="{{ item.password|e }}">Copy</button>
+                            <button class="copy-btn" onclick="copyToClipboard({{ item.password|tojson }}, this)">Copy</button>
                         </div>
                         {% endif %}
                     </div>
@@ -851,41 +781,6 @@ MAIN_TEMPLATE = """
         </div>
     </div>
 
-    <!-- Add Folder Modal -->
-    <div id="addFolderModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">➕ Add Folder</div>
-            <form method="POST" action="{{ url_for('add_folder') }}">
-                <div class="form-group">
-                    <label for="folderName">Folder Name *</label>
-                    <input type="text" id="folderName" name="name" required autofocus>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('addFolderModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Folder</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Edit Folder Modal -->
-    <div id="editFolderModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">✏️ Edit Folder</div>
-            <form method="POST" action="{{ url_for('edit_folder') }}">
-                <input type="hidden" id="editFolderId" name="folder_id">
-                <div class="form-group">
-                    <label for="editFolderName">Folder Name *</label>
-                    <input type="text" id="editFolderName" name="name" required autofocus>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal('editFolderModal')">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <script>
         function copyToClipboard(text, btn) {
             navigator.clipboard.writeText(text).then(() => {
@@ -901,58 +796,11 @@ MAIN_TEMPLATE = """
 
         let currentFolder = null;
 
-        function filterByFolder(folderId) {
-            currentFolder = folderId === null || folderId === '' ? null : folderId;
-            document.querySelectorAll('.folder-container').forEach(c => c.classList.remove('active'));
-            if (currentFolder === null) {
-                const allItemsContainer = document.querySelector('.folder-container:first-child');
-                if (allItemsContainer) {
-                    allItemsContainer.classList.add('active');
-                }
-            } else {
-                const folderContainer = document.querySelector(`.folder-container[data-folder-id="${folderId}"]`);
-                if (folderContainer) {
-                    folderContainer.classList.add('active');
-                }
-            }
+        function filterByFolder(folderId, btn) {
+            currentFolder = folderId;
+            document.querySelectorAll('.folder-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
             filterItems();
-        }
-
-        function openAddFolderModal() {
-            document.getElementById('addFolderModal').classList.add('active');
-        }
-
-        function openEditFolderModal(folderId, folderName) {
-            document.getElementById('editFolderId').value = folderId;
-            document.getElementById('editFolderName').value = folderName;
-            document.getElementById('editFolderModal').classList.add('active');
-        }
-
-        function deleteFolder(folderId, folderName, itemCount) {
-            let message = 'Are you sure you want to delete the folder "' + folderName + '"?';
-            if (itemCount > 0) {
-                message += '\n\nThis folder contains ' + itemCount + ' item(s). All items will be moved to "No Folder".';
-            }
-            if (confirm(message)) {
-                fetch('/delete_folder', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        folder_id: folderId
-                    })
-                }).then(response => {
-                    if (response.ok) {
-                        location.reload();
-                    } else {
-                        alert('Error deleting folder. Please try again.');
-                    }
-                }).catch(error => {
-                    console.error('Error deleting folder:', error);
-                    alert('Error deleting folder. Please try again.');
-                });
-            }
         }
 
         function filterItems() {
@@ -1081,74 +929,6 @@ MAIN_TEMPLATE = """
                 alert('Error deleting item. Please try again.');
             }
         }
-
-        // Event delegation for item action buttons, copy buttons, and folder actions
-        // Use immediate execution since script is at bottom of body
-        (function() {
-            // Handle clicks on action buttons using event delegation
-            document.addEventListener('click', function(event) {
-                const target = event.target;
-                
-                // Handle copy buttons
-                if (target.classList.contains('copy-btn')) {
-                    const copyText = target.getAttribute('data-copy-text');
-                    if (copyText) {
-                        copyToClipboard(copyText, target);
-                    }
-                    return;
-                }
-                
-                const action = target.getAttribute('data-action');
-                if (!action) return;
-                
-                // Handle folder actions
-                if (action === 'filter-folder') {
-                    const folderId = target.getAttribute('data-folder-id');
-                    filterByFolder(folderId === '' ? null : folderId);
-                    return;
-                } else if (action === 'add-folder') {
-                    openAddFolderModal();
-                    return;
-                } else if (action === 'edit-folder') {
-                    const folderId = target.getAttribute('data-folder-id');
-                    const folderName = target.getAttribute('data-folder-name');
-                    openEditFolderModal(folderId, folderName);
-                    return;
-                } else if (action === 'delete-folder') {
-                    const folderId = target.getAttribute('data-folder-id');
-                    const folderName = target.getAttribute('data-folder-name');
-                    const itemCount = parseInt(target.getAttribute('data-folder-count') || '0');
-                    deleteFolder(folderId, folderName, itemCount);
-                    return;
-                }
-                
-                // Handle item actions - find the parent item div
-                const itemDiv = target.closest('.item');
-                if (!itemDiv) return;
-                
-                const itemId = itemDiv.getAttribute('data-item-id');
-                const itemName = itemDiv.getAttribute('data-item-name');
-                
-                if (!itemId) return;
-                
-                if (action === 'edit') {
-                    const folderId = itemDiv.getAttribute('data-item-folder') || '';
-                    const uri = itemDiv.getAttribute('data-item-uri') || '';
-                    const username = itemDiv.getAttribute('data-item-username') || '';
-                    const password = itemDiv.getAttribute('data-item-password') || '';
-                    const notes = itemDiv.getAttribute('data-item-notes') || '';
-                    openEditModal(itemId, itemName, folderId, uri, username, password, notes);
-                } else if (action === 'move') {
-                    const folderId = itemDiv.getAttribute('data-item-folder') || '';
-                    openMoveModal(itemId, itemName, folderId);
-                } else if (action === 'delete') {
-                    deleteItem(itemId, itemName);
-                } else if (action === 'toggle-favorite') {
-                    const currentFavorite = parseInt(itemDiv.getAttribute('data-item-favorite') || '0');
-                    toggleFavorite(itemId, currentFavorite);
-                }
-            });
-        })();
 
         // Close modal when clicking outside
         window.onclick = function(event) {
@@ -1397,102 +1177,6 @@ def delete_item():
     cursor.execute("DELETE FROM uris WHERE item_id = ?", (item_id,))
     cursor.execute("DELETE FROM fields WHERE item_id = ?", (item_id,))
     cursor.execute("DELETE FROM items WHERE id = ?", (item_id,))
-
-    conn.commit()
-    conn.close()
-
-    return jsonify({'success': True})
-
-
-@app.route('/add_folder', methods=['POST'])
-@login_required
-def add_folder():
-    password = session.get('db_password')
-    conn = get_db_connection(password)
-
-    if not conn:
-        session.clear()
-        return redirect(url_for('login'))
-
-    cursor = conn.cursor()
-    folder_name = request.form.get('name')
-
-    if not folder_name:
-        conn.close()
-        return redirect(url_for('dashboard'))
-
-    # Generate new UUID for folder
-    folder_id = str(uuid.uuid4())
-
-    # Insert folder
-    cursor.execute("""
-        INSERT INTO folders (id, name)
-        VALUES (?, ?)
-    """, (folder_id, folder_name))
-
-    conn.commit()
-    conn.close()
-
-    return redirect(url_for('dashboard'))
-
-
-@app.route('/edit_folder', methods=['POST'])
-@login_required
-def edit_folder():
-    password = session.get('db_password')
-    conn = get_db_connection(password)
-
-    if not conn:
-        session.clear()
-        return redirect(url_for('login'))
-
-    cursor = conn.cursor()
-    folder_id = request.form.get('folder_id')
-    folder_name = request.form.get('name')
-
-    if not folder_id or not folder_name:
-        conn.close()
-        return redirect(url_for('dashboard'))
-
-    # Update folder name
-    cursor.execute("""
-        UPDATE folders
-        SET name = ?
-        WHERE id = ?
-    """, (folder_name, folder_id))
-
-    conn.commit()
-    conn.close()
-
-    return redirect(url_for('dashboard'))
-
-
-@app.route('/delete_folder', methods=['POST'])
-@login_required
-def delete_folder():
-    password = session.get('db_password')
-    conn = get_db_connection(password)
-
-    if not conn:
-        return jsonify({'error': 'Not authenticated'}), 401
-
-    data = request.get_json()
-    folder_id = data.get('folder_id')
-
-    if not folder_id:
-        return jsonify({'error': 'Folder ID required'}), 400
-
-    cursor = conn.cursor()
-
-    # Move all items in this folder to "No Folder" (set folder_id to NULL)
-    cursor.execute("""
-        UPDATE items
-        SET folder_id = NULL, revision_date = ?
-        WHERE folder_id = ?
-    """, (datetime.utcnow().isoformat() + 'Z', folder_id))
-
-    # Delete the folder
-    cursor.execute("DELETE FROM folders WHERE id = ?", (folder_id,))
 
     conn.commit()
     conn.close()
