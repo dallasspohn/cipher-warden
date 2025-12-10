@@ -608,7 +608,7 @@ MAIN_TEMPLATE = """
                     <div class="item-header">
                         <div class="item-title">
                             <div class="item-name">
-                                <button class="favorite" onclick="toggleFavorite('{{ item.id }}', {{ item.favorite }})">
+                                <button type="button" class="favorite" onclick="toggleFavorite('{{ item.id }}', {{ item.favorite }})">
                                     {% if item.favorite %}⭐{% else %}☆{% endif %}
                                 </button>
                                 {{ item.name }}
@@ -618,9 +618,9 @@ MAIN_TEMPLATE = """
                             {% endif %}
                         </div>
                         <div class="item-actions">
-                            <button onclick="openEditModal('{{ item.id }}', {{ item.name|tojson }}, '{{ item.folder_id or '' }}', '{{ item.uri or '' }}', {{ item.username|tojson }}, {{ item.password|tojson }}, {{ item.notes|tojson }})">Edit</button>
-                            <button onclick="openMoveModal('{{ item.id }}', {{ item.name|tojson }}, '{{ item.folder_id or '' }}')">Move</button>
-                            <button class="delete" onclick="deleteItem('{{ item.id }}', {{ item.name|tojson }})">Delete</button>
+                            <button type="button" onclick="openEditModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}, {{ (item.uri or '')|tojson }}, {{ (item.username or '')|tojson }}, {{ (item.password or '')|tojson }}, {{ (item.notes or '')|tojson }})">Edit</button>
+                            <button type="button" onclick="openMoveModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }})">Move</button>
+                            <button type="button" class="delete" onclick="deleteItem('{{ item.id }}', {{ item.name|tojson }})">Delete</button>
                         </div>
                     </div>
 
@@ -856,21 +856,31 @@ MAIN_TEMPLATE = """
         }
 
         function openEditModal(id, name, folderId, url, username, password, notes) {
-            document.getElementById('editItemId').value = id;
-            document.getElementById('editName').value = name;
-            document.getElementById('editFolder').value = folderId;
-            document.getElementById('editUrl').value = url;
-            document.getElementById('editUsername').value = username;
-            document.getElementById('editPassword').value = password;
-            document.getElementById('editNotes').value = notes || '';
-            document.getElementById('editItemModal').classList.add('active');
+            try {
+                document.getElementById('editItemId').value = id || '';
+                document.getElementById('editName').value = name || '';
+                document.getElementById('editFolder').value = folderId || '';
+                document.getElementById('editUrl').value = url || '';
+                document.getElementById('editUsername').value = username || '';
+                document.getElementById('editPassword').value = password || '';
+                document.getElementById('editNotes').value = notes || '';
+                document.getElementById('editItemModal').classList.add('active');
+            } catch (e) {
+                console.error('Error opening edit modal:', e);
+                alert('Error opening edit form. Please try again.');
+            }
         }
 
         function openMoveModal(itemId, itemName, currentFolderId) {
-            document.getElementById('moveItemId').value = itemId;
-            document.getElementById('moveItemName').textContent = itemName;
-            document.getElementById('moveFolder').value = currentFolderId;
-            document.getElementById('moveItemModal').classList.add('active');
+            try {
+                document.getElementById('moveItemId').value = itemId || '';
+                document.getElementById('moveItemName').textContent = itemName || '';
+                document.getElementById('moveFolder').value = currentFolderId || '';
+                document.getElementById('moveItemModal').classList.add('active');
+            } catch (e) {
+                console.error('Error opening move modal:', e);
+                alert('Error opening move form. Please try again.');
+            }
         }
 
         function closeModal(modalId) {
@@ -893,18 +903,30 @@ MAIN_TEMPLATE = """
         }
 
         function deleteItem(itemId, itemName) {
-            if (confirm('Are you sure you want to delete "' + itemName + '"?')) {
-                fetch('/delete_item', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        item_id: itemId
-                    })
-                }).then(() => {
-                    location.reload();
-                });
+            try {
+                if (confirm('Are you sure you want to delete "' + itemName + '"?')) {
+                    fetch('/delete_item', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            item_id: itemId
+                        })
+                    }).then(response => {
+                        if (response.ok) {
+                            location.reload();
+                        } else {
+                            alert('Error deleting item. Please try again.');
+                        }
+                    }).catch(error => {
+                        console.error('Error deleting item:', error);
+                        alert('Error deleting item. Please try again.');
+                    });
+                }
+            } catch (e) {
+                console.error('Error in deleteItem:', e);
+                alert('Error deleting item. Please try again.');
             }
         }
 
