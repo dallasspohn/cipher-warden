@@ -616,7 +616,8 @@ MAIN_TEMPLATE = """
     <div class="header">
         <h1>🔐 Password Manager</h1>
         <div class="header-actions">
-            <button type="button" class="btn btn-primary" onclick="console.log('New Password clicked'); openNewItemModal();">➕ New Password</button>
+            <button type="button" class="btn btn-primary" onclick="alert('Test: JS works!'); openNewItemModal();">➕ New Password</button>
+            <button type="button" onclick="alert('Simple test works!')" style="background: orange; color: white; padding: 8px 16px; border: none; border-radius: 4px; margin-right: 10px;">TEST JS</button>
             <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
         </div>
     </div>
