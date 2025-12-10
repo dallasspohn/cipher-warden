@@ -891,15 +891,6 @@ MAIN_TEMPLATE = """
     </div>
 
     <script>
-        // Debug: Test if JavaScript is running
-        alert('Script starting!');
-        
-        try {
-            console.log('JavaScript loaded');
-        } catch(e) {
-            alert('Console error: ' + e);
-        }
-        
         var currentFolder = null;
         
         // Define filterItems first since filterByFolder uses it
@@ -963,38 +954,26 @@ MAIN_TEMPLATE = """
         };
 
         window.filterByFolder = function(folderId, btn) {
-            alert('filterByFolder called! folderId=' + folderId);
-            try {
-                currentFolder = folderId;
-                var containers = document.querySelectorAll('.folder-container');
-                for (var i = 0; i < containers.length; i++) {
-                    containers[i].classList.remove('active');
-                }
-                if (btn && btn.parentElement) {
-                    btn.parentElement.classList.add('active');
-                }
-                if (typeof window.filterItems === 'function') {
-                    window.filterItems();
-                } else {
-                    alert('filterItems is not a function!');
-                }
-            } catch(e) {
-                alert('filterByFolder error: ' + e.message);
+            currentFolder = folderId;
+            var containers = document.querySelectorAll('.folder-container');
+            for (var i = 0; i < containers.length; i++) {
+                containers[i].classList.remove('active');
             }
-        }
-        
-        // Test if function is defined
-        alert('filterByFolder defined: ' + (typeof window.filterByFolder === 'function'));
+            if (btn && btn.parentElement) {
+                btn.parentElement.classList.add('active');
+            }
+            window.filterItems();
+        };
 
         window.openAddFolderModal = function() {
             document.getElementById('addFolderModal').classList.add('active');
-        }
+        };
 
         window.openEditFolderModal = function(folderId, folderName) {
             document.getElementById('editFolderId').value = folderId;
             document.getElementById('editFolderName').value = folderName;
             document.getElementById('editFolderModal').classList.add('active');
-        }
+        };
 
         window.deleteFolder = function(folderId, folderName, itemCount) {
             var message = 'Are you sure you want to delete the folder "' + folderName + '"?';
@@ -1051,7 +1030,7 @@ MAIN_TEMPLATE = """
 
         window.openNewItemModal = function() {
             document.getElementById('newItemModal').classList.add('active');
-        }
+        };
 
         window.openEditModal = function(id, name, folderId, url, username, password, notes) {
             try {
@@ -1067,7 +1046,7 @@ MAIN_TEMPLATE = """
                 console.error('Error opening edit modal:', e);
                 alert('Error opening edit form. Please try again.');
             }
-        }
+        };
 
         window.openMoveModal = function(itemId, itemName, currentFolderId) {
             try {
@@ -1079,11 +1058,11 @@ MAIN_TEMPLATE = """
                 console.error('Error opening move modal:', e);
                 alert('Error opening move form. Please try again.');
             }
-        }
+        };
 
         window.closeModal = function(modalId) {
             document.getElementById(modalId).classList.remove('active');
-        }
+        };
 
         window.toggleFavorite = function(itemId, currentFavorite) {
             fetch('/toggle_favorite', {
@@ -1098,7 +1077,7 @@ MAIN_TEMPLATE = """
             }).then(function() {
                 location.reload();
             });
-        }
+        };
 
         window.deleteItem = function(itemId, itemName) {
             try {
@@ -1126,7 +1105,23 @@ MAIN_TEMPLATE = """
                 console.error('Error in deleteItem:', e);
                 alert('Error deleting item. Please try again.');
             }
-        }
+        };
+
+        // Verify all functions are defined
+        window.testFunctions = function() {
+            var funcs = ['filterByFolder', 'openAddFolderModal', 'openEditFolderModal', 'deleteFolder', 'openNewItemModal', 'openEditModal', 'openMoveModal', 'deleteItem', 'toggleFavorite', 'copyToClipboard', 'filterItems'];
+            var missing = [];
+            for (var i = 0; i < funcs.length; i++) {
+                if (typeof window[funcs[i]] !== 'function') {
+                    missing.push(funcs[i]);
+                }
+            }
+            if (missing.length > 0) {
+                alert('Missing functions: ' + missing.join(', '));
+            } else {
+                alert('All functions defined!');
+            }
+        };
 
 
         // Close modal when clicking outside
