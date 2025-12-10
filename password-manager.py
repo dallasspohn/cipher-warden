@@ -892,6 +892,8 @@ MAIN_TEMPLATE = """
 
     <script>
         // Debug: Test if JavaScript is running
+        alert('Script starting!');
+        
         try {
             console.log('JavaScript loaded');
         } catch(e) {
@@ -961,6 +963,7 @@ MAIN_TEMPLATE = """
         };
 
         window.filterByFolder = function(folderId, btn) {
+            alert('filterByFolder called! folderId=' + folderId);
             try {
                 currentFolder = folderId;
                 var containers = document.querySelectorAll('.folder-container');
@@ -972,11 +975,16 @@ MAIN_TEMPLATE = """
                 }
                 if (typeof window.filterItems === 'function') {
                     window.filterItems();
+                } else {
+                    alert('filterItems is not a function!');
                 }
             } catch(e) {
                 alert('filterByFolder error: ' + e.message);
             }
         }
+        
+        // Test if function is defined
+        alert('filterByFolder defined: ' + (typeof window.filterByFolder === 'function'));
 
         window.openAddFolderModal = function() {
             document.getElementById('addFolderModal').classList.add('active');
@@ -1012,29 +1020,6 @@ MAIN_TEMPLATE = """
                     console.error('Error deleting folder:', error);
                     alert('Error deleting folder. Please try again.');
                 });
-            }
-        }
-
-        window.filterItems = function() {
-            var searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            var items = document.querySelectorAll('.item');
-            var visibleCount = 0;
-
-            for (var i = 0; i < items.length; i++) {
-                var item = items[i];
-                var name = item.dataset.name;
-                var username = item.dataset.username;
-                var folder = item.dataset.folder;
-
-                var matchesSearch = name.indexOf(searchTerm) !== -1 || username.indexOf(searchTerm) !== -1;
-                var matchesFolder = !currentFolder || folder === currentFolder;
-
-                if (matchesSearch && matchesFolder) {
-                    item.style.display = 'block';
-                    visibleCount++;
-                } else {
-                    item.style.display = 'none';
-                }
             }
         }
 
