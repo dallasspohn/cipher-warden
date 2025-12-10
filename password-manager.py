@@ -682,7 +682,7 @@ MAIN_TEMPLATE = """
                     <div class="item-header">
                         <div class="item-title">
                             <div class="item-name">
-                                <button type="button" class="favorite" onclick="toggleFavorite('{{ item.id }}', {{ item.favorite }})">
+                                <button type="button" class="favorite" onclick="console.log('Favorite clicked'); if(typeof toggleFavorite === 'function') { toggleFavorite('{{ item.id }}', {{ item.favorite }}); } else { alert('toggleFavorite not found'); }">
                                     {% if item.favorite %}⭐{% else %}☆{% endif %}
                                 </button>
                                 {{ item.name }}
@@ -692,9 +692,9 @@ MAIN_TEMPLATE = """
                             {% endif %}
                         </div>
                         <div class="item-actions">
-                            <button type="button" onclick="console.log('Edit clicked'); if(typeof openEditModal === 'function') { openEditModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}, {{ (item.uri or '')|tojson }}, {{ (item.username or '')|tojson }}, {{ (item.password or '')|tojson }}, {{ (item.notes or '')|tojson }}); } else { alert('openEditModal not found'); }">Edit</button>
-                            <button type="button" onclick="console.log('Move clicked'); if(typeof openMoveModal === 'function') { openMoveModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}); } else { alert('openMoveModal not found'); }">Move</button>
-                            <button type="button" class="delete" onclick="console.log('Delete clicked'); if(typeof deleteItem === 'function') { deleteItem('{{ item.id }}', {{ item.name|tojson }}); } else { alert('deleteItem not found'); }">Delete</button>
+                            <button type="button" onclick="if(typeof window.openEditModal === 'function') { window.openEditModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}, {{ (item.uri or '')|tojson }}, {{ (item.username or '')|tojson }}, {{ (item.password or '')|tojson }}, {{ (item.notes or '')|tojson }}); } else { alert('openEditModal not found!'); }">Edit</button>
+                            <button type="button" onclick="if(typeof window.openMoveModal === 'function') { window.openMoveModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}); } else { alert('openMoveModal not found!'); }">Move</button>
+                            <button type="button" class="delete" onclick="if(typeof window.deleteItem === 'function') { window.deleteItem('{{ item.id }}', {{ item.name|tojson }}); } else { alert('deleteItem not found!'); }">Delete</button>
                         </div>
                     </div>
 
@@ -703,7 +703,7 @@ MAIN_TEMPLATE = """
                         <div class="cred-row">
                             <span class="cred-label">Username</span>
                             <span class="cred-value">{{ item.username }}</span>
-                            <button type="button" class="copy-btn" onclick="console.log('Copy username clicked'); if(typeof copyToClipboard === 'function') { copyToClipboard({{ item.username|tojson }}, this); } else { alert('copyToClipboard not found'); }">Copy</button>
+                            <button type="button" class="copy-btn" onclick="if(typeof window.copyToClipboard === 'function') { window.copyToClipboard({{ item.username|tojson }}, this); } else { alert('copyToClipboard not found!'); }">Copy</button>
                         </div>
                         {% endif %}
 
@@ -711,7 +711,7 @@ MAIN_TEMPLATE = """
                         <div class="cred-row">
                             <span class="cred-label">Password</span>
                             <span class="cred-value password" title="Click to reveal">{{ item.password }}</span>
-                            <button type="button" class="copy-btn" onclick="console.log('Copy password clicked'); if(typeof copyToClipboard === 'function') { copyToClipboard({{ item.password|tojson }}, this); } else { alert('copyToClipboard not found'); }">Copy</button>
+                            <button type="button" class="copy-btn" onclick="if(typeof window.copyToClipboard === 'function') { window.copyToClipboard({{ item.password|tojson }}, this); } else { alert('copyToClipboard not found!'); }">Copy</button>
                         </div>
                         {% endif %}
                     </div>
