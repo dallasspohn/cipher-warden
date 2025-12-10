@@ -289,13 +289,10 @@ MAIN_TEMPLATE = """
             margin-top: 5px;
         }
         .folder-actions {
-            display: none;
+            display: flex;
             gap: 5px;
             margin-top: 8px;
             justify-content: flex-end;
-        }
-        .folder-container.active .folder-actions {
-            display: flex;
         }
         .folder-actions button {
             background: #6c757d;
@@ -616,8 +613,7 @@ MAIN_TEMPLATE = """
     <div class="header">
         <h1>🔐 Password Manager</h1>
         <div class="header-actions">
-            <button type="button" class="btn btn-primary" onclick="if(typeof window.openNewItemModal === 'function') { window.openNewItemModal(); } else { alert('openNewItemModal not found!'); }">➕ New Password</button>
-            <button type="button" onclick="alert('Simple test works!')" style="background: orange; color: white; padding: 8px 16px; border: none; border-radius: 4px; margin-right: 10px;">TEST JS</button>
+            <button class="btn btn-primary" onclick="openNewItemModal()">➕ New Password</button>
             <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
         </div>
     </div>
@@ -629,24 +625,24 @@ MAIN_TEMPLATE = """
 
         <div class="folders">
             <div class="folder-container active">
-                <button type="button" class="folder-btn" onclick="filterByFolder(null, this)">
+                <button type="button" class="folder-btn" data-action="filter-folder" data-folder-id="">
                     📁 All Items
                     <div class="count">{{ total_items }} items</div>
                 </button>
             </div>
             {% for folder in folders %}
-            <div class="folder-container" data-folder-id="{{ folder.id }}">
-                <button type="button" class="folder-btn" onclick="if(typeof window.filterByFolder === 'function') { window.filterByFolder('{{ folder.id }}', this); } else { alert('filterByFolder not found!'); }">
+            <div class="folder-container" data-folder-id="{{ folder.id }}" data-folder-name="{{ folder.name|e }}" data-folder-count="{{ folder.count }}">
+                <button type="button" class="folder-btn" data-action="filter-folder" data-folder-id="{{ folder.id }}">
                     📂 {{ folder.name }}
                     <div class="count">{{ folder.count }} items</div>
                 </button>
                 <div class="folder-actions">
-                    <button type="button" class="folder-edit" onclick="if(typeof window.openEditFolderModal === 'function') { window.openEditFolderModal('{{ folder.id }}', {{ folder.name|tojson }}); } else { alert('openEditFolderModal not found!'); }">Edit</button>
-                    <button type="button" class="folder-delete" onclick="if(typeof window.deleteFolder === 'function') { window.deleteFolder('{{ folder.id }}', {{ folder.name|tojson }}, {{ folder.count }}); } else { alert('deleteFolder not found!'); }">Delete</button>
+                    <button type="button" class="folder-edit" data-action="edit-folder" data-folder-id="{{ folder.id }}" data-folder-name="{{ folder.name|e }}">Edit</button>
+                    <button type="button" class="folder-delete" data-action="delete-folder" data-folder-id="{{ folder.id }}" data-folder-name="{{ folder.name|e }}" data-folder-count="{{ folder.count }}">Delete</button>
                 </div>
             </div>
             {% endfor %}
-            <div class="add-folder-btn" onclick="if(typeof window.openAddFolderModal === 'function') { window.openAddFolderModal(); } else { alert('openAddFolderModal not found!'); }">
+            <div class="add-folder-btn" data-action="add-folder">
                 ➕ Add Folder
             </div>
         </div>
@@ -682,7 +678,7 @@ MAIN_TEMPLATE = """
                     <div class="item-header">
                         <div class="item-title">
                             <div class="item-name">
-                                <button type="button" class="favorite" onclick="if(typeof window.toggleFavorite === 'function') { window.toggleFavorite('{{ item.id }}', {{ item.favorite }}); } else { alert('toggleFavorite not found!'); }">
+                                <button type="button" class="favorite" data-action="toggle-favorite">
                                     {% if item.favorite %}⭐{% else %}☆{% endif %}
                                 </button>
                                 {{ item.name }}
@@ -692,9 +688,9 @@ MAIN_TEMPLATE = """
                             {% endif %}
                         </div>
                         <div class="item-actions">
-                            <button type="button" onclick="if(typeof window.openEditModal === 'function') { window.openEditModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}, {{ (item.uri or '')|tojson }}, {{ (item.username or '')|tojson }}, {{ (item.password or '')|tojson }}, {{ (item.notes or '')|tojson }}); } else { alert('openEditModal not found!'); }">Edit</button>
-                            <button type="button" onclick="if(typeof window.openMoveModal === 'function') { window.openMoveModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}); } else { alert('openMoveModal not found!'); }">Move</button>
-                            <button type="button" class="delete" onclick="if(typeof window.deleteItem === 'function') { window.deleteItem('{{ item.id }}', {{ item.name|tojson }}); } else { alert('deleteItem not found!'); }">Delete</button>
+                            <button type="button" class="btn-edit" data-action="edit">Edit</button>
+                            <button type="button" class="btn-move" data-action="move">Move</button>
+                            <button type="button" class="btn-delete delete" data-action="delete">Delete</button>
                         </div>
                     </div>
 
@@ -703,7 +699,7 @@ MAIN_TEMPLATE = """
                         <div class="cred-row">
                             <span class="cred-label">Username</span>
                             <span class="cred-value">{{ item.username }}</span>
-                            <button type="button" class="copy-btn" onclick="if(typeof window.copyToClipboard === 'function') { window.copyToClipboard({{ item.username|tojson }}, this); } else { alert('copyToClipboard not found!'); }">Copy</button>
+                            <button type="button" class="copy-btn" data-copy-text="{{ item.username|e }}">Copy</button>
                         </div>
                         {% endif %}
 
@@ -711,7 +707,7 @@ MAIN_TEMPLATE = """
                         <div class="cred-row">
                             <span class="cred-label">Password</span>
                             <span class="cred-value password" title="Click to reveal">{{ item.password }}</span>
-                            <button type="button" class="copy-btn" onclick="if(typeof window.copyToClipboard === 'function') { window.copyToClipboard({{ item.password|tojson }}, this); } else { alert('copyToClipboard not found!'); }">Copy</button>
+                            <button type="button" class="copy-btn" data-copy-text="{{ item.password|e }}">Copy</button>
                         </div>
                         {% endif %}
                     </div>
@@ -891,92 +887,49 @@ MAIN_TEMPLATE = """
     </div>
 
     <script>
-        var currentFolder = null;
-        
-        // Define filterItems first since filterByFolder uses it
-        window.filterItems = function() {
-            var searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            var items = document.querySelectorAll('.item');
-            var visibleCount = 0;
+        function copyToClipboard(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Copied';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
+        }
 
-            for (var i = 0; i < items.length; i++) {
-                var item = items[i];
-                var name = item.dataset.name;
-                var username = item.dataset.username;
-                var folder = item.dataset.folder;
+        let currentFolder = null;
 
-                var matchesSearch = name.indexOf(searchTerm) !== -1 || username.indexOf(searchTerm) !== -1;
-                var matchesFolder = !currentFolder || folder === currentFolder;
-
-                if (matchesSearch && matchesFolder) {
-                    item.style.display = 'block';
-                    visibleCount++;
-                } else {
-                    item.style.display = 'none';
+        function filterByFolder(folderId) {
+            currentFolder = folderId === null || folderId === '' ? null : folderId;
+            document.querySelectorAll('.folder-container').forEach(c => c.classList.remove('active'));
+            if (currentFolder === null) {
+                const allItemsContainer = document.querySelector('.folder-container:first-child');
+                if (allItemsContainer) {
+                    allItemsContainer.classList.add('active');
+                }
+            } else {
+                const folderContainer = document.querySelector(`.folder-container[data-folder-id="${folderId}"]`);
+                if (folderContainer) {
+                    folderContainer.classList.add('active');
                 }
             }
-        };
-        
-        // Make sure functions are in global scope
-        window.copyToClipboard = function(text, btn) {
-            try {
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(text).then(function() {
-                        var originalText = btn.textContent;
-                        btn.textContent = '✓ Copied';
-                        btn.classList.add('copied');
-                        setTimeout(function() {
-                            btn.textContent = originalText;
-                            btn.classList.remove('copied');
-                        }, 2000);
-                    }).catch(function(err) {
-                        alert('Copy failed: ' + err);
-                    });
-                } else {
-                    // Fallback for browsers without clipboard API
-                    var textArea = document.createElement('textarea');
-                    textArea.value = text;
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                    var originalText = btn.textContent;
-                    btn.textContent = '✓ Copied';
-                    btn.classList.add('copied');
-                    setTimeout(function() {
-                        btn.textContent = originalText;
-                        btn.classList.remove('copied');
-                    }, 2000);
-                }
-            } catch(e) {
-                alert('Copy error: ' + e.message);
-            }
-        };
+            filterItems();
+        }
 
-        window.filterByFolder = function(folderId, btn) {
-            currentFolder = folderId;
-            var containers = document.querySelectorAll('.folder-container');
-            for (var i = 0; i < containers.length; i++) {
-                containers[i].classList.remove('active');
-            }
-            if (btn && btn.parentElement) {
-                btn.parentElement.classList.add('active');
-            }
-            window.filterItems();
-        };
-
-        window.openAddFolderModal = function() {
+        function openAddFolderModal() {
             document.getElementById('addFolderModal').classList.add('active');
-        };
+        }
 
-        window.openEditFolderModal = function(folderId, folderName) {
+        function openEditFolderModal(folderId, folderName) {
             document.getElementById('editFolderId').value = folderId;
             document.getElementById('editFolderName').value = folderName;
             document.getElementById('editFolderModal').classList.add('active');
-        };
+        }
 
-        window.deleteFolder = function(folderId, folderName, itemCount) {
-            var message = 'Are you sure you want to delete the folder "' + folderName + '"?';
+        function deleteFolder(folderId, folderName, itemCount) {
+            let message = 'Are you sure you want to delete the folder "' + folderName + '"?';
             if (itemCount > 0) {
                 message += '\n\nThis folder contains ' + itemCount + ' item(s). All items will be moved to "No Folder".';
             }
@@ -989,27 +942,49 @@ MAIN_TEMPLATE = """
                     body: JSON.stringify({
                         folder_id: folderId
                     })
-                }).then(function(response) {
+                }).then(response => {
                     if (response.ok) {
                         location.reload();
                     } else {
                         alert('Error deleting folder. Please try again.');
                     }
-                }).catch(function(error) {
+                }).catch(error => {
                     console.error('Error deleting folder:', error);
                     alert('Error deleting folder. Please try again.');
                 });
             }
         }
 
-        window.generatePassword = function(fieldId) {
-            var length = parseInt(document.getElementById('pwdLength').value) || 16;
-            var useUpper = document.getElementById('pwdUpper').checked;
-            var useLower = document.getElementById('pwdLower').checked;
-            var useNumbers = document.getElementById('pwdNumbers').checked;
-            var useSymbols = document.getElementById('pwdSymbols').checked;
+        function filterItems() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const items = document.querySelectorAll('.item');
+            let visibleCount = 0;
 
-            var chars = '';
+            items.forEach(item => {
+                const name = item.dataset.name;
+                const username = item.dataset.username;
+                const folder = item.dataset.folder;
+
+                const matchesSearch = name.includes(searchTerm) || username.includes(searchTerm);
+                const matchesFolder = !currentFolder || folder === currentFolder;
+
+                if (matchesSearch && matchesFolder) {
+                    item.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        function generatePassword(fieldId) {
+            const length = parseInt(document.getElementById('pwdLength').value) || 16;
+            const useUpper = document.getElementById('pwdUpper').checked;
+            const useLower = document.getElementById('pwdLower').checked;
+            const useNumbers = document.getElementById('pwdNumbers').checked;
+            const useSymbols = document.getElementById('pwdSymbols').checked;
+
+            let chars = '';
             if (useUpper) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
             if (useLower) chars += 'abcdefghijklmnopqrstuvwxyz';
             if (useNumbers) chars += '0123456789';
@@ -1017,22 +992,22 @@ MAIN_TEMPLATE = """
 
             if (!chars) chars = 'abcdefghijklmnopqrstuvwxyz';
 
-            var password = '';
-            var array = new Uint32Array(length);
+            let password = '';
+            const array = new Uint32Array(length);
             crypto.getRandomValues(array);
 
-            for (var i = 0; i < length; i++) {
+            for (let i = 0; i < length; i++) {
                 password += chars[array[i] % chars.length];
             }
 
             document.getElementById(fieldId).value = password;
         }
 
-        window.openNewItemModal = function() {
+        function openNewItemModal() {
             document.getElementById('newItemModal').classList.add('active');
-        };
+        }
 
-        window.openEditModal = function(id, name, folderId, url, username, password, notes) {
+        function openEditModal(id, name, folderId, url, username, password, notes) {
             try {
                 document.getElementById('editItemId').value = id || '';
                 document.getElementById('editName').value = name || '';
@@ -1046,9 +1021,9 @@ MAIN_TEMPLATE = """
                 console.error('Error opening edit modal:', e);
                 alert('Error opening edit form. Please try again.');
             }
-        };
+        }
 
-        window.openMoveModal = function(itemId, itemName, currentFolderId) {
+        function openMoveModal(itemId, itemName, currentFolderId) {
             try {
                 document.getElementById('moveItemId').value = itemId || '';
                 document.getElementById('moveItemName').textContent = itemName || '';
@@ -1058,13 +1033,13 @@ MAIN_TEMPLATE = """
                 console.error('Error opening move modal:', e);
                 alert('Error opening move form. Please try again.');
             }
-        };
+        }
 
-        window.closeModal = function(modalId) {
+        function closeModal(modalId) {
             document.getElementById(modalId).classList.remove('active');
-        };
+        }
 
-        window.toggleFavorite = function(itemId, currentFavorite) {
+        function toggleFavorite(itemId, currentFavorite) {
             fetch('/toggle_favorite', {
                 method: 'POST',
                 headers: {
@@ -1074,12 +1049,12 @@ MAIN_TEMPLATE = """
                     item_id: itemId,
                     favorite: currentFavorite ? 0 : 1
                 })
-            }).then(function() {
+            }).then(() => {
                 location.reload();
             });
-        };
+        }
 
-        window.deleteItem = function(itemId, itemName) {
+        function deleteItem(itemId, itemName) {
             try {
                 if (confirm('Are you sure you want to delete "' + itemName + '"?')) {
                     fetch('/delete_item', {
@@ -1090,13 +1065,13 @@ MAIN_TEMPLATE = """
                         body: JSON.stringify({
                             item_id: itemId
                         })
-                    }).then(function(response) {
+                    }).then(response => {
                         if (response.ok) {
                             location.reload();
                         } else {
                             alert('Error deleting item. Please try again.');
                         }
-                    }).catch(function(error) {
+                    }).catch(error => {
                         console.error('Error deleting item:', error);
                         alert('Error deleting item. Please try again.');
                     });
@@ -1105,29 +1080,79 @@ MAIN_TEMPLATE = """
                 console.error('Error in deleteItem:', e);
                 alert('Error deleting item. Please try again.');
             }
-        };
+        }
 
-        // Verify all functions are defined
-        window.testFunctions = function() {
-            var funcs = ['filterByFolder', 'openAddFolderModal', 'openEditFolderModal', 'deleteFolder', 'openNewItemModal', 'openEditModal', 'openMoveModal', 'deleteItem', 'toggleFavorite', 'copyToClipboard', 'filterItems'];
-            var missing = [];
-            for (var i = 0; i < funcs.length; i++) {
-                if (typeof window[funcs[i]] !== 'function') {
-                    missing.push(funcs[i]);
+        // Event delegation for item action buttons, copy buttons, and folder actions
+        // Use immediate execution since script is at bottom of body
+        (function() {
+            // Handle clicks on action buttons using event delegation
+            document.addEventListener('click', function(event) {
+                const target = event.target;
+                
+                // Handle copy buttons
+                if (target.classList.contains('copy-btn')) {
+                    const copyText = target.getAttribute('data-copy-text');
+                    if (copyText) {
+                        copyToClipboard(copyText, target);
+                    }
+                    return;
                 }
-            }
-            if (missing.length > 0) {
-                alert('Missing functions: ' + missing.join(', '));
-            } else {
-                alert('All functions defined!');
-            }
-        };
-
+                
+                const action = target.getAttribute('data-action');
+                if (!action) return;
+                
+                // Handle folder actions
+                if (action === 'filter-folder') {
+                    const folderId = target.getAttribute('data-folder-id');
+                    filterByFolder(folderId === '' ? null : folderId);
+                    return;
+                } else if (action === 'add-folder') {
+                    openAddFolderModal();
+                    return;
+                } else if (action === 'edit-folder') {
+                    const folderId = target.getAttribute('data-folder-id');
+                    const folderName = target.getAttribute('data-folder-name');
+                    openEditFolderModal(folderId, folderName);
+                    return;
+                } else if (action === 'delete-folder') {
+                    const folderId = target.getAttribute('data-folder-id');
+                    const folderName = target.getAttribute('data-folder-name');
+                    const itemCount = parseInt(target.getAttribute('data-folder-count') || '0');
+                    deleteFolder(folderId, folderName, itemCount);
+                    return;
+                }
+                
+                // Handle item actions - find the parent item div
+                const itemDiv = target.closest('.item');
+                if (!itemDiv) return;
+                
+                const itemId = itemDiv.getAttribute('data-item-id');
+                const itemName = itemDiv.getAttribute('data-item-name');
+                
+                if (!itemId) return;
+                
+                if (action === 'edit') {
+                    const folderId = itemDiv.getAttribute('data-item-folder') || '';
+                    const uri = itemDiv.getAttribute('data-item-uri') || '';
+                    const username = itemDiv.getAttribute('data-item-username') || '';
+                    const password = itemDiv.getAttribute('data-item-password') || '';
+                    const notes = itemDiv.getAttribute('data-item-notes') || '';
+                    openEditModal(itemId, itemName, folderId, uri, username, password, notes);
+                } else if (action === 'move') {
+                    const folderId = itemDiv.getAttribute('data-item-folder') || '';
+                    openMoveModal(itemId, itemName, folderId);
+                } else if (action === 'delete') {
+                    deleteItem(itemId, itemName);
+                } else if (action === 'toggle-favorite') {
+                    const currentFavorite = parseInt(itemDiv.getAttribute('data-item-favorite') || '0');
+                    toggleFavorite(itemId, currentFavorite);
+                }
+            });
+        })();
 
         // Close modal when clicking outside
         window.onclick = function(event) {
-            // Only handle clicks on the modal background, not on buttons or other elements
-            if (event.target.classList && event.target.classList.contains('modal')) {
+            if (event.target.classList.contains('modal')) {
                 event.target.classList.remove('active');
             }
         }
