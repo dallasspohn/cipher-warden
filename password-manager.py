@@ -891,29 +891,32 @@ MAIN_TEMPLATE = """
 
     <script>
         function copyToClipboard(text, btn) {
-            navigator.clipboard.writeText(text).then(() => {
-                const originalText = btn.textContent;
+            navigator.clipboard.writeText(text).then(function() {
+                var originalText = btn.textContent;
                 btn.textContent = '✓ Copied';
                 btn.classList.add('copied');
-                setTimeout(() => {
+                setTimeout(function() {
                     btn.textContent = originalText;
                     btn.classList.remove('copied');
                 }, 2000);
             });
         }
 
-        let currentFolder = null;
+        var currentFolder = null;
 
         function filterByFolder(folderId) {
             currentFolder = folderId === null || folderId === '' ? null : folderId;
-            document.querySelectorAll('.folder-container').forEach(c => c.classList.remove('active'));
+            var containers = document.querySelectorAll('.folder-container');
+            for (var i = 0; i < containers.length; i++) {
+                containers[i].classList.remove('active');
+            }
             if (currentFolder === null) {
-                const allItemsContainer = document.querySelector('.folder-container:first-child');
+                var allItemsContainer = document.querySelector('.folder-container:first-child');
                 if (allItemsContainer) {
                     allItemsContainer.classList.add('active');
                 }
             } else {
-                const folderContainer = document.querySelector(`.folder-container[data-folder-id="${folderId}"]`);
+                var folderContainer = document.querySelector('.folder-container[data-folder-id="' + folderId + '"]');
                 if (folderContainer) {
                     folderContainer.classList.add('active');
                 }
@@ -932,7 +935,7 @@ MAIN_TEMPLATE = """
         }
 
         function deleteFolder(folderId, folderName, itemCount) {
-            let message = 'Are you sure you want to delete the folder "' + folderName + '"?';
+            var message = 'Are you sure you want to delete the folder "' + folderName + '"?';
             if (itemCount > 0) {
                 message += '\n\nThis folder contains ' + itemCount + ' item(s). All items will be moved to "No Folder".';
             }
@@ -945,13 +948,13 @@ MAIN_TEMPLATE = """
                     body: JSON.stringify({
                         folder_id: folderId
                     })
-                }).then(response => {
+                }).then(function(response) {
                     if (response.ok) {
                         location.reload();
                     } else {
                         alert('Error deleting folder. Please try again.');
                     }
-                }).catch(error => {
+                }).catch(function(error) {
                     console.error('Error deleting folder:', error);
                     alert('Error deleting folder. Please try again.');
                 });
@@ -959,17 +962,18 @@ MAIN_TEMPLATE = """
         }
 
         function filterItems() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const items = document.querySelectorAll('.item');
-            let visibleCount = 0;
+            var searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            var items = document.querySelectorAll('.item');
+            var visibleCount = 0;
 
-            items.forEach(item => {
-                const name = item.dataset.name;
-                const username = item.dataset.username;
-                const folder = item.dataset.folder;
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                var name = item.dataset.name;
+                var username = item.dataset.username;
+                var folder = item.dataset.folder;
 
-                const matchesSearch = name.includes(searchTerm) || username.includes(searchTerm);
-                const matchesFolder = !currentFolder || folder === currentFolder;
+                var matchesSearch = name.indexOf(searchTerm) !== -1 || username.indexOf(searchTerm) !== -1;
+                var matchesFolder = !currentFolder || folder === currentFolder;
 
                 if (matchesSearch && matchesFolder) {
                     item.style.display = 'block';
@@ -977,17 +981,17 @@ MAIN_TEMPLATE = """
                 } else {
                     item.style.display = 'none';
                 }
-            });
+            }
         }
 
         function generatePassword(fieldId) {
-            const length = parseInt(document.getElementById('pwdLength').value) || 16;
-            const useUpper = document.getElementById('pwdUpper').checked;
-            const useLower = document.getElementById('pwdLower').checked;
-            const useNumbers = document.getElementById('pwdNumbers').checked;
-            const useSymbols = document.getElementById('pwdSymbols').checked;
+            var length = parseInt(document.getElementById('pwdLength').value) || 16;
+            var useUpper = document.getElementById('pwdUpper').checked;
+            var useLower = document.getElementById('pwdLower').checked;
+            var useNumbers = document.getElementById('pwdNumbers').checked;
+            var useSymbols = document.getElementById('pwdSymbols').checked;
 
-            let chars = '';
+            var chars = '';
             if (useUpper) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
             if (useLower) chars += 'abcdefghijklmnopqrstuvwxyz';
             if (useNumbers) chars += '0123456789';
@@ -995,11 +999,11 @@ MAIN_TEMPLATE = """
 
             if (!chars) chars = 'abcdefghijklmnopqrstuvwxyz';
 
-            let password = '';
-            const array = new Uint32Array(length);
+            var password = '';
+            var array = new Uint32Array(length);
             crypto.getRandomValues(array);
 
-            for (let i = 0; i < length; i++) {
+            for (var i = 0; i < length; i++) {
                 password += chars[array[i] % chars.length];
             }
 
@@ -1052,7 +1056,7 @@ MAIN_TEMPLATE = """
                     item_id: itemId,
                     favorite: currentFavorite ? 0 : 1
                 })
-            }).then(() => {
+            }).then(function() {
                 location.reload();
             });
         }
@@ -1068,13 +1072,13 @@ MAIN_TEMPLATE = """
                         body: JSON.stringify({
                             item_id: itemId
                         })
-                    }).then(response => {
+                    }).then(function(response) {
                         if (response.ok) {
                             location.reload();
                         } else {
                             alert('Error deleting item. Please try again.');
                         }
-                    }).catch(error => {
+                    }).catch(function(error) {
                         console.error('Error deleting item:', error);
                         alert('Error deleting item. Please try again.');
                     });
@@ -1086,99 +1090,130 @@ MAIN_TEMPLATE = """
         }
 
         // Event delegation for item action buttons, copy buttons, and folder actions
-        document.addEventListener('click', function(event) {
-            var target = event.target;
-            
-            // Traverse up to find element with data-action or copy-btn class
-            while (target && target !== document.body) {
-                // Check for copy button
-                if (target.classList && target.classList.contains('copy-btn')) {
-                    event.preventDefault();
-                    var copyText = target.getAttribute('data-copy-text');
-                    if (copyText) {
-                        copyToClipboard(copyText, target);
-                    }
-                    return;
-                }
+        // Ensure DOM is ready before attaching event listener
+        function initEventHandlers() {
+            document.addEventListener('click', function(event) {
+                var target = event.target;
                 
-                // Check for data-action attribute
-                if (target.getAttribute && target.getAttribute('data-action')) {
-                    var action = target.getAttribute('data-action');
-                    
-                    // Prevent default for buttons
-                    if (target.tagName === 'BUTTON' && target.type !== 'submit') {
+                // Traverse up to find element with data-action or copy-btn class
+                while (target && target !== document.body && target !== document) {
+                    // Check for copy button
+                    if (target.classList && target.classList.contains('copy-btn')) {
                         event.preventDefault();
-                    }
-                    
-                    // Handle folder actions
-                    if (action === 'filter-folder') {
-                        var folderId = target.getAttribute('data-folder-id');
-                        filterByFolder(folderId === '' ? null : folderId);
-                        return;
-                    } else if (action === 'add-folder') {
-                        openAddFolderModal();
-                        return;
-                    } else if (action === 'edit-folder') {
-                        var folderId = target.getAttribute('data-folder-id');
-                        var folderName = target.getAttribute('data-folder-name');
-                        openEditFolderModal(folderId, folderName);
-                        return;
-                    } else if (action === 'delete-folder') {
-                        var folderId = target.getAttribute('data-folder-id');
-                        var folderName = target.getAttribute('data-folder-name');
-                        var itemCount = parseInt(target.getAttribute('data-folder-count') || '0');
-                        deleteFolder(folderId, folderName, itemCount);
-                        return;
-                    } else if (action === 'new-item') {
-                        openNewItemModal();
-                        return;
-                    }
-                    
-                    // Handle item actions - find parent .item
-                    var itemDiv = null;
-                    if (target.closest) {
-                        itemDiv = target.closest('.item');
-                    } else {
-                        // Fallback for browsers without closest()
-                        var temp = target;
-                        while (temp && temp !== document.body) {
-                            if (temp.classList && temp.classList.contains('item')) {
-                                itemDiv = temp;
-                                break;
-                            }
-                            temp = temp.parentNode;
+                        event.stopPropagation();
+                        var copyText = target.getAttribute('data-copy-text');
+                        if (copyText && typeof copyToClipboard === 'function') {
+                            copyToClipboard(copyText, target);
                         }
+                        return;
                     }
-                    if (itemDiv) {
-                        var itemId = itemDiv.getAttribute('data-item-id');
-                        var itemName = itemDiv.getAttribute('data-item-name');
+                    
+                    // Check for data-action attribute
+                    if (target.getAttribute && target.getAttribute('data-action')) {
+                        var action = target.getAttribute('data-action');
                         
-                        if (itemId) {
-                            if (action === 'edit') {
-                                var folderId = itemDiv.getAttribute('data-item-folder') || '';
-                                var uri = itemDiv.getAttribute('data-item-uri') || '';
-                                var username = itemDiv.getAttribute('data-item-username') || '';
-                                var password = itemDiv.getAttribute('data-item-password') || '';
-                                var notes = itemDiv.getAttribute('data-item-notes') || '';
-                                openEditModal(itemId, itemName, folderId, uri, username, password, notes);
-                            } else if (action === 'move') {
-                                var folderId = itemDiv.getAttribute('data-item-folder') || '';
-                                openMoveModal(itemId, itemName, folderId);
-                            } else if (action === 'delete') {
-                                deleteItem(itemId, itemName);
-                            } else if (action === 'toggle-favorite') {
-                                var currentFavorite = parseInt(itemDiv.getAttribute('data-item-favorite') || '0');
-                                toggleFavorite(itemId, currentFavorite);
+                        // Prevent default for buttons
+                        if (target.tagName === 'BUTTON' && target.type !== 'submit') {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        }
+                        
+                        // Handle folder actions
+                        if (action === 'filter-folder') {
+                            var folderId = target.getAttribute('data-folder-id');
+                            if (typeof filterByFolder === 'function') {
+                                filterByFolder(folderId === '' ? null : folderId);
+                            }
+                            return;
+                        } else if (action === 'add-folder') {
+                            if (typeof openAddFolderModal === 'function') {
+                                openAddFolderModal();
+                            }
+                            return;
+                        } else if (action === 'edit-folder') {
+                            var folderId = target.getAttribute('data-folder-id');
+                            var folderName = target.getAttribute('data-folder-name');
+                            if (typeof openEditFolderModal === 'function') {
+                                openEditFolderModal(folderId, folderName);
+                            }
+                            return;
+                        } else if (action === 'delete-folder') {
+                            var folderId = target.getAttribute('data-folder-id');
+                            var folderName = target.getAttribute('data-folder-name');
+                            var itemCount = parseInt(target.getAttribute('data-folder-count') || '0');
+                            if (typeof deleteFolder === 'function') {
+                                deleteFolder(folderId, folderName, itemCount);
+                            }
+                            return;
+                        } else if (action === 'new-item') {
+                            if (typeof openNewItemModal === 'function') {
+                                openNewItemModal();
+                            }
+                            return;
+                        }
+                        
+                        // Handle item actions - find parent .item
+                        var itemDiv = null;
+                        if (target.closest) {
+                            itemDiv = target.closest('.item');
+                        } else {
+                            // Fallback for browsers without closest()
+                            var temp = target;
+                            while (temp && temp !== document.body && temp !== document) {
+                                if (temp.classList && temp.classList.contains('item')) {
+                                    itemDiv = temp;
+                                    break;
+                                }
+                                temp = temp.parentNode;
                             }
                         }
+                        if (itemDiv) {
+                            var itemId = itemDiv.getAttribute('data-item-id');
+                            var itemName = itemDiv.getAttribute('data-item-name');
+                            
+                            if (itemId) {
+                                if (action === 'edit') {
+                                    var folderId = itemDiv.getAttribute('data-item-folder') || '';
+                                    var uri = itemDiv.getAttribute('data-item-uri') || '';
+                                    var username = itemDiv.getAttribute('data-item-username') || '';
+                                    var password = itemDiv.getAttribute('data-item-password') || '';
+                                    var notes = itemDiv.getAttribute('data-item-notes') || '';
+                                    if (typeof openEditModal === 'function') {
+                                        openEditModal(itemId, itemName, folderId, uri, username, password, notes);
+                                    }
+                                } else if (action === 'move') {
+                                    var folderId = itemDiv.getAttribute('data-item-folder') || '';
+                                    if (typeof openMoveModal === 'function') {
+                                        openMoveModal(itemId, itemName, folderId);
+                                    }
+                                } else if (action === 'delete') {
+                                    if (typeof deleteItem === 'function') {
+                                        deleteItem(itemId, itemName);
+                                    }
+                                } else if (action === 'toggle-favorite') {
+                                    var currentFavorite = parseInt(itemDiv.getAttribute('data-item-favorite') || '0');
+                                    if (typeof toggleFavorite === 'function') {
+                                        toggleFavorite(itemId, currentFavorite);
+                                    }
+                                }
+                            }
+                        }
+                        return;
                     }
-                    return;
+                    
+                    // Move to parent
+                    target = target.parentNode;
                 }
-                
-                // Move to parent
-                target = target.parentNode;
-            }
-        });
+            }, true); // Use capture phase for better compatibility
+        }
+        
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initEventHandlers);
+        } else {
+            // DOM is already ready
+            initEventHandlers();
+        }
 
         // Close modal when clicking outside
         window.onclick = function(event) {
