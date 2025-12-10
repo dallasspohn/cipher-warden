@@ -616,7 +616,7 @@ MAIN_TEMPLATE = """
     <div class="header">
         <h1>🔐 Password Manager</h1>
         <div class="header-actions">
-            <button type="button" class="btn btn-primary" onclick="alert('Test: JS works!'); openNewItemModal();">➕ New Password</button>
+            <button type="button" class="btn btn-primary" onclick="if(typeof window.openNewItemModal === 'function') { window.openNewItemModal(); } else { alert('openNewItemModal not found!'); }">➕ New Password</button>
             <button type="button" onclick="alert('Simple test works!')" style="background: orange; color: white; padding: 8px 16px; border: none; border-radius: 4px; margin-right: 10px;">TEST JS</button>
             <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
         </div>
@@ -636,17 +636,17 @@ MAIN_TEMPLATE = """
             </div>
             {% for folder in folders %}
             <div class="folder-container" data-folder-id="{{ folder.id }}">
-                <button type="button" class="folder-btn" onclick="console.log('Folder clicked:', '{{ folder.id }}'); if(typeof filterByFolder === 'function') { filterByFolder('{{ folder.id }}', this); } else { alert('filterByFolder not found'); }">
+                <button type="button" class="folder-btn" onclick="if(typeof window.filterByFolder === 'function') { window.filterByFolder('{{ folder.id }}', this); } else { alert('filterByFolder not found!'); }">
                     📂 {{ folder.name }}
                     <div class="count">{{ folder.count }} items</div>
                 </button>
                 <div class="folder-actions">
-                    <button type="button" class="folder-edit" onclick="console.log('Edit folder clicked'); if(typeof openEditFolderModal === 'function') { openEditFolderModal('{{ folder.id }}', {{ folder.name|tojson }}); } else { alert('openEditFolderModal not found'); }">Edit</button>
-                    <button type="button" class="folder-delete" onclick="console.log('Delete folder clicked'); if(typeof deleteFolder === 'function') { deleteFolder('{{ folder.id }}', {{ folder.name|tojson }}, {{ folder.count }}); } else { alert('deleteFolder not found'); }">Delete</button>
+                    <button type="button" class="folder-edit" onclick="if(typeof window.openEditFolderModal === 'function') { window.openEditFolderModal('{{ folder.id }}', {{ folder.name|tojson }}); } else { alert('openEditFolderModal not found!'); }">Edit</button>
+                    <button type="button" class="folder-delete" onclick="if(typeof window.deleteFolder === 'function') { window.deleteFolder('{{ folder.id }}', {{ folder.name|tojson }}, {{ folder.count }}); } else { alert('deleteFolder not found!'); }">Delete</button>
                 </div>
             </div>
             {% endfor %}
-            <div class="add-folder-btn" onclick="openAddFolderModal()">
+            <div class="add-folder-btn" onclick="if(typeof window.openAddFolderModal === 'function') { window.openAddFolderModal(); } else { alert('openAddFolderModal not found!'); }">
                 ➕ Add Folder
             </div>
         </div>
@@ -682,7 +682,7 @@ MAIN_TEMPLATE = """
                     <div class="item-header">
                         <div class="item-title">
                             <div class="item-name">
-                                <button type="button" class="favorite" onclick="console.log('Favorite clicked'); if(typeof toggleFavorite === 'function') { toggleFavorite('{{ item.id }}', {{ item.favorite }}); } else { alert('toggleFavorite not found'); }">
+                                <button type="button" class="favorite" onclick="if(typeof window.toggleFavorite === 'function') { window.toggleFavorite('{{ item.id }}', {{ item.favorite }}); } else { alert('toggleFavorite not found!'); }">
                                     {% if item.favorite %}⭐{% else %}☆{% endif %}
                                 </button>
                                 {{ item.name }}
@@ -892,33 +892,90 @@ MAIN_TEMPLATE = """
 
     <script>
         // Debug: Test if JavaScript is running
-        console.log('JavaScript loaded');
+        try {
+            console.log('JavaScript loaded');
+        } catch(e) {
+            alert('Console error: ' + e);
+        }
+        
+        var currentFolder = null;
+        
+        // Define filterItems first since filterByFolder uses it
+        window.filterItems = function() {
+            var searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            var items = document.querySelectorAll('.item');
+            var visibleCount = 0;
+
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                var name = item.dataset.name;
+                var username = item.dataset.username;
+                var folder = item.dataset.folder;
+
+                var matchesSearch = name.indexOf(searchTerm) !== -1 || username.indexOf(searchTerm) !== -1;
+                var matchesFolder = !currentFolder || folder === currentFolder;
+
+                if (matchesSearch && matchesFolder) {
+                    item.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    item.style.display = 'none';
+                }
+            }
+        };
         
         // Make sure functions are in global scope
         window.copyToClipboard = function(text, btn) {
-            navigator.clipboard.writeText(text).then(function() {
-                var originalText = btn.textContent;
-                btn.textContent = '✓ Copied';
-                btn.classList.add('copied');
-                setTimeout(function() {
-                    btn.textContent = originalText;
-                    btn.classList.remove('copied');
-                }, 2000);
-            });
-        }
-
-        var currentFolder = null;
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(function() {
+                        var originalText = btn.textContent;
+                        btn.textContent = '✓ Copied';
+                        btn.classList.add('copied');
+                        setTimeout(function() {
+                            btn.textContent = originalText;
+                            btn.classList.remove('copied');
+                        }, 2000);
+                    }).catch(function(err) {
+                        alert('Copy failed: ' + err);
+                    });
+                } else {
+                    // Fallback for browsers without clipboard API
+                    var textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    var originalText = btn.textContent;
+                    btn.textContent = '✓ Copied';
+                    btn.classList.add('copied');
+                    setTimeout(function() {
+                        btn.textContent = originalText;
+                        btn.classList.remove('copied');
+                    }, 2000);
+                }
+            } catch(e) {
+                alert('Copy error: ' + e.message);
+            }
+        };
 
         window.filterByFolder = function(folderId, btn) {
-            currentFolder = folderId;
-            var containers = document.querySelectorAll('.folder-container');
-            for (var i = 0; i < containers.length; i++) {
-                containers[i].classList.remove('active');
+            try {
+                currentFolder = folderId;
+                var containers = document.querySelectorAll('.folder-container');
+                for (var i = 0; i < containers.length; i++) {
+                    containers[i].classList.remove('active');
+                }
+                if (btn && btn.parentElement) {
+                    btn.parentElement.classList.add('active');
+                }
+                if (typeof window.filterItems === 'function') {
+                    window.filterItems();
+                }
+            } catch(e) {
+                alert('filterByFolder error: ' + e.message);
             }
-            if (btn && btn.parentElement) {
-                btn.parentElement.classList.add('active');
-            }
-            filterItems();
         }
 
         window.openAddFolderModal = function() {
