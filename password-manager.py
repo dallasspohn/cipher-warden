@@ -289,10 +289,13 @@ MAIN_TEMPLATE = """
             margin-top: 5px;
         }
         .folder-actions {
-            display: flex;
+            display: none;
             gap: 5px;
             margin-top: 8px;
             justify-content: flex-end;
+        }
+        .folder-container.active .folder-actions {
+            display: flex;
         }
         .folder-actions button {
             background: #6c757d;
@@ -613,7 +616,7 @@ MAIN_TEMPLATE = """
     <div class="header">
         <h1>🔐 Password Manager</h1>
         <div class="header-actions">
-            <button class="btn btn-primary" onclick="openNewItemModal()">➕ New Password</button>
+            <button type="button" class="btn btn-primary" data-action="new-item">➕ New Password</button>
             <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
         </div>
     </div>
@@ -1087,10 +1090,19 @@ MAIN_TEMPLATE = """
         (function() {
             // Handle clicks on action buttons using event delegation
             document.addEventListener('click', function(event) {
-                const target = event.target;
+                // Find the button element (might be clicked directly or on a child)
+                let target = event.target;
+                
+                // If clicked on a child element, find the button parent
+                if (!target.hasAttribute('data-action') && !target.classList.contains('copy-btn')) {
+                    target = target.closest('[data-action], .copy-btn');
+                    if (!target) return;
+                }
                 
                 // Handle copy buttons
                 if (target.classList.contains('copy-btn')) {
+                    event.preventDefault();
+                    event.stopPropagation();
                     const copyText = target.getAttribute('data-copy-text');
                     if (copyText) {
                         copyToClipboard(copyText, target);
@@ -1100,6 +1112,11 @@ MAIN_TEMPLATE = """
                 
                 const action = target.getAttribute('data-action');
                 if (!action) return;
+                
+                // Prevent default only for non-form buttons
+                if (target.tagName === 'BUTTON' && target.type !== 'submit') {
+                    event.preventDefault();
+                }
                 
                 // Handle folder actions
                 if (action === 'filter-folder') {
@@ -1119,6 +1136,9 @@ MAIN_TEMPLATE = """
                     const folderName = target.getAttribute('data-folder-name');
                     const itemCount = parseInt(target.getAttribute('data-folder-count') || '0');
                     deleteFolder(folderId, folderName, itemCount);
+                    return;
+                } else if (action === 'new-item') {
+                    openNewItemModal();
                     return;
                 }
                 
