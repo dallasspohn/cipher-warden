@@ -593,7 +593,15 @@ MAIN_TEMPLATE = """
                 <div class="item {% if age_warning == 'critical' %}age-critical{% elif age_warning == 'warning' %}age-warning{% endif %}"
                      data-folder="{{ item.folder_id or '' }}"
                      data-name="{{ item.name.lower() }}"
-                     data-username="{{ (item.username or '').lower() }}">
+                     data-username="{{ (item.username or '').lower() }}"
+                     data-item-id="{{ item.id }}"
+                     data-item-name="{{ item.name|e }}"
+                     data-item-folder="{{ item.folder_id or '' }}"
+                     data-item-uri="{{ (item.uri or '')|e }}"
+                     data-item-username="{{ (item.username or '')|e }}"
+                     data-item-password="{{ (item.password or '')|e }}"
+                     data-item-notes="{{ (item.notes or '')|e }}"
+                     data-item-favorite="{{ item.favorite }}">
 
                     {% if age_warning %}
                     <div class="age-badge {{ age_warning }}">
@@ -608,7 +616,7 @@ MAIN_TEMPLATE = """
                     <div class="item-header">
                         <div class="item-title">
                             <div class="item-name">
-                                <button type="button" class="favorite" onclick="toggleFavorite('{{ item.id }}', {{ item.favorite }})">
+                                <button type="button" class="favorite" data-action="toggle-favorite">
                                     {% if item.favorite %}⭐{% else %}☆{% endif %}
                                 </button>
                                 {{ item.name }}
@@ -618,9 +626,9 @@ MAIN_TEMPLATE = """
                             {% endif %}
                         </div>
                         <div class="item-actions">
-                            <button type="button" onclick="openEditModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}, {{ (item.uri or '')|tojson }}, {{ (item.username or '')|tojson }}, {{ (item.password or '')|tojson }}, {{ (item.notes or '')|tojson }})">Edit</button>
-                            <button type="button" onclick="openMoveModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }})">Move</button>
-                            <button type="button" class="delete" onclick="deleteItem('{{ item.id }}', {{ item.name|tojson }})">Delete</button>
+                            <button type="button" class="btn-edit" data-action="edit">Edit</button>
+                            <button type="button" class="btn-move" data-action="move">Move</button>
+                            <button type="button" class="btn-delete delete" data-action="delete">Delete</button>
                         </div>
                     </div>
 
@@ -629,7 +637,7 @@ MAIN_TEMPLATE = """
                         <div class="cred-row">
                             <span class="cred-label">Username</span>
                             <span class="cred-value">{{ item.username }}</span>
-                            <button class="copy-btn" onclick="copyToClipboard({{ item.username|tojson }}, this)">Copy</button>
+                            <button type="button" class="copy-btn" data-copy-text="{{ item.username|e }}">Copy</button>
                         </div>
                         {% endif %}
 
@@ -637,7 +645,7 @@ MAIN_TEMPLATE = """
                         <div class="cred-row">
                             <span class="cred-label">Password</span>
                             <span class="cred-value password" title="Click to reveal">{{ item.password }}</span>
-                            <button class="copy-btn" onclick="copyToClipboard({{ item.password|tojson }}, this)">Copy</button>
+                            <button type="button" class="copy-btn" data-copy-text="{{ item.password|e }}">Copy</button>
                         </div>
                         {% endif %}
                     </div>
@@ -929,6 +937,53 @@ MAIN_TEMPLATE = """
                 alert('Error deleting item. Please try again.');
             }
         }
+
+        // Event delegation for item action buttons and copy buttons
+        // Use immediate execution since script is at bottom of body
+        (function() {
+            // Handle clicks on action buttons using event delegation
+            document.addEventListener('click', function(event) {
+                const target = event.target;
+                
+                // Handle copy buttons
+                if (target.classList.contains('copy-btn')) {
+                    const copyText = target.getAttribute('data-copy-text');
+                    if (copyText) {
+                        copyToClipboard(copyText, target);
+                    }
+                    return;
+                }
+                
+                const action = target.getAttribute('data-action');
+                if (!action) return;
+                
+                // Find the parent item div
+                const itemDiv = target.closest('.item');
+                if (!itemDiv) return;
+                
+                const itemId = itemDiv.getAttribute('data-item-id');
+                const itemName = itemDiv.getAttribute('data-item-name');
+                
+                if (!itemId) return;
+                
+                if (action === 'edit') {
+                    const folderId = itemDiv.getAttribute('data-item-folder') || '';
+                    const uri = itemDiv.getAttribute('data-item-uri') || '';
+                    const username = itemDiv.getAttribute('data-item-username') || '';
+                    const password = itemDiv.getAttribute('data-item-password') || '';
+                    const notes = itemDiv.getAttribute('data-item-notes') || '';
+                    openEditModal(itemId, itemName, folderId, uri, username, password, notes);
+                } else if (action === 'move') {
+                    const folderId = itemDiv.getAttribute('data-item-folder') || '';
+                    openMoveModal(itemId, itemName, folderId);
+                } else if (action === 'delete') {
+                    deleteItem(itemId, itemName);
+                } else if (action === 'toggle-favorite') {
+                    const currentFavorite = parseInt(itemDiv.getAttribute('data-item-favorite') || '0');
+                    toggleFavorite(itemId, currentFavorite);
+                }
+            });
+        })();
 
         // Close modal when clicking outside
         window.onclick = function(event) {
