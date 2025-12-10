@@ -616,7 +616,7 @@ MAIN_TEMPLATE = """
     <div class="header">
         <h1>🔐 Password Manager</h1>
         <div class="header-actions">
-            <button type="button" class="btn btn-primary" data-action="new-item">➕ New Password</button>
+            <button type="button" class="btn btn-primary" onclick="openNewItemModal()">➕ New Password</button>
             <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
         </div>
     </div>
@@ -628,24 +628,24 @@ MAIN_TEMPLATE = """
 
         <div class="folders">
             <div class="folder-container active">
-                <button type="button" class="folder-btn" data-action="filter-folder" data-folder-id="">
+                <button type="button" class="folder-btn" onclick="filterByFolder(null, this)">
                     📁 All Items
                     <div class="count">{{ total_items }} items</div>
                 </button>
             </div>
             {% for folder in folders %}
-            <div class="folder-container" data-folder-id="{{ folder.id }}" data-folder-name="{{ folder.name|e }}" data-folder-count="{{ folder.count }}">
-                <button type="button" class="folder-btn" data-action="filter-folder" data-folder-id="{{ folder.id }}">
+            <div class="folder-container" data-folder-id="{{ folder.id }}">
+                <button type="button" class="folder-btn" onclick="filterByFolder('{{ folder.id }}', this)">
                     📂 {{ folder.name }}
                     <div class="count">{{ folder.count }} items</div>
                 </button>
                 <div class="folder-actions">
-                    <button type="button" class="folder-edit" data-action="edit-folder" data-folder-id="{{ folder.id }}" data-folder-name="{{ folder.name|e }}">Edit</button>
-                    <button type="button" class="folder-delete" data-action="delete-folder" data-folder-id="{{ folder.id }}" data-folder-name="{{ folder.name|e }}" data-folder-count="{{ folder.count }}">Delete</button>
+                    <button type="button" class="folder-edit" onclick="openEditFolderModal('{{ folder.id }}', {{ folder.name|tojson }})">Edit</button>
+                    <button type="button" class="folder-delete" onclick="deleteFolder('{{ folder.id }}', {{ folder.name|tojson }}, {{ folder.count }})">Delete</button>
                 </div>
             </div>
             {% endfor %}
-            <div class="add-folder-btn" data-action="add-folder">
+            <div class="add-folder-btn" onclick="openAddFolderModal()">
                 ➕ Add Folder
             </div>
         </div>
@@ -681,7 +681,7 @@ MAIN_TEMPLATE = """
                     <div class="item-header">
                         <div class="item-title">
                             <div class="item-name">
-                                <button type="button" class="favorite" data-action="toggle-favorite">
+                                <button type="button" class="favorite" onclick="toggleFavorite('{{ item.id }}', {{ item.favorite }})">
                                     {% if item.favorite %}⭐{% else %}☆{% endif %}
                                 </button>
                                 {{ item.name }}
@@ -691,9 +691,9 @@ MAIN_TEMPLATE = """
                             {% endif %}
                         </div>
                         <div class="item-actions">
-                            <button type="button" class="btn-edit" data-action="edit">Edit</button>
-                            <button type="button" class="btn-move" data-action="move">Move</button>
-                            <button type="button" class="btn-delete delete" data-action="delete">Delete</button>
+                            <button type="button" onclick="openEditModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}, {{ (item.uri or '')|tojson }}, {{ (item.username or '')|tojson }}, {{ (item.password or '')|tojson }}, {{ (item.notes or '')|tojson }})">Edit</button>
+                            <button type="button" onclick="openMoveModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }})">Move</button>
+                            <button type="button" class="delete" onclick="deleteItem('{{ item.id }}', {{ item.name|tojson }})">Delete</button>
                         </div>
                     </div>
 
@@ -702,7 +702,7 @@ MAIN_TEMPLATE = """
                         <div class="cred-row">
                             <span class="cred-label">Username</span>
                             <span class="cred-value">{{ item.username }}</span>
-                            <button type="button" class="copy-btn" data-copy-text="{{ item.username|e }}">Copy</button>
+                            <button type="button" class="copy-btn" onclick="copyToClipboard({{ item.username|tojson }}, this)">Copy</button>
                         </div>
                         {% endif %}
 
@@ -710,7 +710,7 @@ MAIN_TEMPLATE = """
                         <div class="cred-row">
                             <span class="cred-label">Password</span>
                             <span class="cred-value password" title="Click to reveal">{{ item.password }}</span>
-                            <button type="button" class="copy-btn" data-copy-text="{{ item.password|e }}">Copy</button>
+                            <button type="button" class="copy-btn" onclick="copyToClipboard({{ item.password|tojson }}, this)">Copy</button>
                         </div>
                         {% endif %}
                     </div>
@@ -904,22 +904,14 @@ MAIN_TEMPLATE = """
 
         var currentFolder = null;
 
-        function filterByFolder(folderId) {
-            currentFolder = folderId === null || folderId === '' ? null : folderId;
+        function filterByFolder(folderId, btn) {
+            currentFolder = folderId;
             var containers = document.querySelectorAll('.folder-container');
             for (var i = 0; i < containers.length; i++) {
                 containers[i].classList.remove('active');
             }
-            if (currentFolder === null) {
-                var allItemsContainer = document.querySelector('.folder-container:first-child');
-                if (allItemsContainer) {
-                    allItemsContainer.classList.add('active');
-                }
-            } else {
-                var folderContainer = document.querySelector('.folder-container[data-folder-id="' + folderId + '"]');
-                if (folderContainer) {
-                    folderContainer.classList.add('active');
-                }
+            if (btn && btn.parentElement) {
+                btn.parentElement.classList.add('active');
             }
             filterItems();
         }
@@ -1089,131 +1081,6 @@ MAIN_TEMPLATE = """
             }
         }
 
-        // Event delegation for item action buttons, copy buttons, and folder actions
-        // Ensure DOM is ready before attaching event listener
-        function initEventHandlers() {
-            document.addEventListener('click', function(event) {
-                var target = event.target;
-                
-                // Traverse up to find element with data-action or copy-btn class
-                while (target && target !== document.body && target !== document) {
-                    // Check for copy button
-                    if (target.classList && target.classList.contains('copy-btn')) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        var copyText = target.getAttribute('data-copy-text');
-                        if (copyText && typeof copyToClipboard === 'function') {
-                            copyToClipboard(copyText, target);
-                        }
-                        return;
-                    }
-                    
-                    // Check for data-action attribute
-                    if (target.getAttribute && target.getAttribute('data-action')) {
-                        var action = target.getAttribute('data-action');
-                        
-                        // Prevent default for buttons
-                        if (target.tagName === 'BUTTON' && target.type !== 'submit') {
-                            event.preventDefault();
-                            event.stopPropagation();
-                        }
-                        
-                        // Handle folder actions
-                        if (action === 'filter-folder') {
-                            var folderId = target.getAttribute('data-folder-id');
-                            if (typeof filterByFolder === 'function') {
-                                filterByFolder(folderId === '' ? null : folderId);
-                            }
-                            return;
-                        } else if (action === 'add-folder') {
-                            if (typeof openAddFolderModal === 'function') {
-                                openAddFolderModal();
-                            }
-                            return;
-                        } else if (action === 'edit-folder') {
-                            var folderId = target.getAttribute('data-folder-id');
-                            var folderName = target.getAttribute('data-folder-name');
-                            if (typeof openEditFolderModal === 'function') {
-                                openEditFolderModal(folderId, folderName);
-                            }
-                            return;
-                        } else if (action === 'delete-folder') {
-                            var folderId = target.getAttribute('data-folder-id');
-                            var folderName = target.getAttribute('data-folder-name');
-                            var itemCount = parseInt(target.getAttribute('data-folder-count') || '0');
-                            if (typeof deleteFolder === 'function') {
-                                deleteFolder(folderId, folderName, itemCount);
-                            }
-                            return;
-                        } else if (action === 'new-item') {
-                            if (typeof openNewItemModal === 'function') {
-                                openNewItemModal();
-                            }
-                            return;
-                        }
-                        
-                        // Handle item actions - find parent .item
-                        var itemDiv = null;
-                        if (target.closest) {
-                            itemDiv = target.closest('.item');
-                        } else {
-                            // Fallback for browsers without closest()
-                            var temp = target;
-                            while (temp && temp !== document.body && temp !== document) {
-                                if (temp.classList && temp.classList.contains('item')) {
-                                    itemDiv = temp;
-                                    break;
-                                }
-                                temp = temp.parentNode;
-                            }
-                        }
-                        if (itemDiv) {
-                            var itemId = itemDiv.getAttribute('data-item-id');
-                            var itemName = itemDiv.getAttribute('data-item-name');
-                            
-                            if (itemId) {
-                                if (action === 'edit') {
-                                    var folderId = itemDiv.getAttribute('data-item-folder') || '';
-                                    var uri = itemDiv.getAttribute('data-item-uri') || '';
-                                    var username = itemDiv.getAttribute('data-item-username') || '';
-                                    var password = itemDiv.getAttribute('data-item-password') || '';
-                                    var notes = itemDiv.getAttribute('data-item-notes') || '';
-                                    if (typeof openEditModal === 'function') {
-                                        openEditModal(itemId, itemName, folderId, uri, username, password, notes);
-                                    }
-                                } else if (action === 'move') {
-                                    var folderId = itemDiv.getAttribute('data-item-folder') || '';
-                                    if (typeof openMoveModal === 'function') {
-                                        openMoveModal(itemId, itemName, folderId);
-                                    }
-                                } else if (action === 'delete') {
-                                    if (typeof deleteItem === 'function') {
-                                        deleteItem(itemId, itemName);
-                                    }
-                                } else if (action === 'toggle-favorite') {
-                                    var currentFavorite = parseInt(itemDiv.getAttribute('data-item-favorite') || '0');
-                                    if (typeof toggleFavorite === 'function') {
-                                        toggleFavorite(itemId, currentFavorite);
-                                    }
-                                }
-                            }
-                        }
-                        return;
-                    }
-                    
-                    // Move to parent
-                    target = target.parentNode;
-                }
-            }, true); // Use capture phase for better compatibility
-        }
-        
-        // Initialize when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initEventHandlers);
-        } else {
-            // DOM is already ready
-            initEventHandlers();
-        }
 
         // Close modal when clicking outside
         window.onclick = function(event) {
