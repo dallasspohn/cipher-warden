@@ -691,9 +691,9 @@ MAIN_TEMPLATE = """
                             {% endif %}
                         </div>
                         <div class="item-actions">
-                            <button type="button" onclick="openEditModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}, {{ (item.uri or '')|tojson }}, {{ (item.username or '')|tojson }}, {{ (item.password or '')|tojson }}, {{ (item.notes or '')|tojson }})">Edit</button>
-                            <button type="button" onclick="openMoveModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }})">Move</button>
-                            <button type="button" class="delete" onclick="deleteItem('{{ item.id }}', {{ item.name|tojson }})">Delete</button>
+                            <button type="button" onclick="try { openEditModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}, {{ (item.uri or '')|tojson }}, {{ (item.username or '')|tojson }}, {{ (item.password or '')|tojson }}, {{ (item.notes or '')|tojson }}); } catch(e) { alert('Error: ' + e.message); }">Edit</button>
+                            <button type="button" onclick="try { openMoveModal('{{ item.id }}', {{ item.name|tojson }}, {{ (item.folder_id or '')|tojson }}); } catch(e) { alert('Error: ' + e.message); }">Move</button>
+                            <button type="button" class="delete" onclick="try { deleteItem('{{ item.id }}', {{ item.name|tojson }}); } catch(e) { alert('Error: ' + e.message); }">Delete</button>
                         </div>
                     </div>
 
@@ -1088,7 +1088,8 @@ MAIN_TEMPLATE = """
 
         // Close modal when clicking outside
         window.onclick = function(event) {
-            if (event.target.classList.contains('modal')) {
+            // Only handle clicks on the modal background, not on buttons or other elements
+            if (event.target.classList && event.target.classList.contains('modal')) {
                 event.target.classList.remove('active');
             }
         }
