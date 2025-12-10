@@ -57,3 +57,4 @@ Go to http://192.168.x.xxx:5000 (use your phone's IP)
 * ✅ 30-minute session timeout for security
 * ✅ Works on all devices on your local network
 
+-
