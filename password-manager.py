@@ -1134,8 +1134,21 @@ MAIN_TEMPLATE = """
                         return;
                     }
                     
-                    // Handle item actions
-                    var itemDiv = target.closest('.item');
+                    // Handle item actions - find parent .item
+                    var itemDiv = null;
+                    if (target.closest) {
+                        itemDiv = target.closest('.item');
+                    } else {
+                        // Fallback for browsers without closest()
+                        var temp = target;
+                        while (temp && temp !== document.body) {
+                            if (temp.classList && temp.classList.contains('item')) {
+                                itemDiv = temp;
+                                break;
+                            }
+                            temp = temp.parentNode;
+                        }
+                    }
                     if (itemDiv) {
                         var itemId = itemDiv.getAttribute('data-item-id');
                         var itemName = itemDiv.getAttribute('data-item-name');
