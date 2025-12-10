@@ -1086,89 +1086,86 @@ MAIN_TEMPLATE = """
         }
 
         // Event delegation for item action buttons, copy buttons, and folder actions
-        // Use immediate execution since script is at bottom of body
-        (function() {
-            // Handle clicks on action buttons using event delegation
-            document.addEventListener('click', function(event) {
-                // Find the button element (might be clicked directly or on a child)
-                let target = event.target;
-                
-                // If clicked on a child element, find the button parent
-                if (!target.hasAttribute('data-action') && !target.classList.contains('copy-btn')) {
-                    target = target.closest('[data-action], .copy-btn');
-                    if (!target) return;
-                }
-                
-                // Handle copy buttons
-                if (target.classList.contains('copy-btn')) {
+        document.addEventListener('click', function(event) {
+            var target = event.target;
+            
+            // Traverse up to find element with data-action or copy-btn class
+            while (target && target !== document.body) {
+                // Check for copy button
+                if (target.classList && target.classList.contains('copy-btn')) {
                     event.preventDefault();
-                    event.stopPropagation();
-                    const copyText = target.getAttribute('data-copy-text');
+                    var copyText = target.getAttribute('data-copy-text');
                     if (copyText) {
                         copyToClipboard(copyText, target);
                     }
                     return;
                 }
                 
-                const action = target.getAttribute('data-action');
-                if (!action) return;
-                
-                // Prevent default only for non-form buttons
-                if (target.tagName === 'BUTTON' && target.type !== 'submit') {
-                    event.preventDefault();
+                // Check for data-action attribute
+                if (target.getAttribute && target.getAttribute('data-action')) {
+                    var action = target.getAttribute('data-action');
+                    
+                    // Prevent default for buttons
+                    if (target.tagName === 'BUTTON' && target.type !== 'submit') {
+                        event.preventDefault();
+                    }
+                    
+                    // Handle folder actions
+                    if (action === 'filter-folder') {
+                        var folderId = target.getAttribute('data-folder-id');
+                        filterByFolder(folderId === '' ? null : folderId);
+                        return;
+                    } else if (action === 'add-folder') {
+                        openAddFolderModal();
+                        return;
+                    } else if (action === 'edit-folder') {
+                        var folderId = target.getAttribute('data-folder-id');
+                        var folderName = target.getAttribute('data-folder-name');
+                        openEditFolderModal(folderId, folderName);
+                        return;
+                    } else if (action === 'delete-folder') {
+                        var folderId = target.getAttribute('data-folder-id');
+                        var folderName = target.getAttribute('data-folder-name');
+                        var itemCount = parseInt(target.getAttribute('data-folder-count') || '0');
+                        deleteFolder(folderId, folderName, itemCount);
+                        return;
+                    } else if (action === 'new-item') {
+                        openNewItemModal();
+                        return;
+                    }
+                    
+                    // Handle item actions
+                    var itemDiv = target.closest('.item');
+                    if (itemDiv) {
+                        var itemId = itemDiv.getAttribute('data-item-id');
+                        var itemName = itemDiv.getAttribute('data-item-name');
+                        
+                        if (itemId) {
+                            if (action === 'edit') {
+                                var folderId = itemDiv.getAttribute('data-item-folder') || '';
+                                var uri = itemDiv.getAttribute('data-item-uri') || '';
+                                var username = itemDiv.getAttribute('data-item-username') || '';
+                                var password = itemDiv.getAttribute('data-item-password') || '';
+                                var notes = itemDiv.getAttribute('data-item-notes') || '';
+                                openEditModal(itemId, itemName, folderId, uri, username, password, notes);
+                            } else if (action === 'move') {
+                                var folderId = itemDiv.getAttribute('data-item-folder') || '';
+                                openMoveModal(itemId, itemName, folderId);
+                            } else if (action === 'delete') {
+                                deleteItem(itemId, itemName);
+                            } else if (action === 'toggle-favorite') {
+                                var currentFavorite = parseInt(itemDiv.getAttribute('data-item-favorite') || '0');
+                                toggleFavorite(itemId, currentFavorite);
+                            }
+                        }
+                    }
+                    return;
                 }
                 
-                // Handle folder actions
-                if (action === 'filter-folder') {
-                    const folderId = target.getAttribute('data-folder-id');
-                    filterByFolder(folderId === '' ? null : folderId);
-                    return;
-                } else if (action === 'add-folder') {
-                    openAddFolderModal();
-                    return;
-                } else if (action === 'edit-folder') {
-                    const folderId = target.getAttribute('data-folder-id');
-                    const folderName = target.getAttribute('data-folder-name');
-                    openEditFolderModal(folderId, folderName);
-                    return;
-                } else if (action === 'delete-folder') {
-                    const folderId = target.getAttribute('data-folder-id');
-                    const folderName = target.getAttribute('data-folder-name');
-                    const itemCount = parseInt(target.getAttribute('data-folder-count') || '0');
-                    deleteFolder(folderId, folderName, itemCount);
-                    return;
-                } else if (action === 'new-item') {
-                    openNewItemModal();
-                    return;
-                }
-                
-                // Handle item actions - find the parent item div
-                const itemDiv = target.closest('.item');
-                if (!itemDiv) return;
-                
-                const itemId = itemDiv.getAttribute('data-item-id');
-                const itemName = itemDiv.getAttribute('data-item-name');
-                
-                if (!itemId) return;
-                
-                if (action === 'edit') {
-                    const folderId = itemDiv.getAttribute('data-item-folder') || '';
-                    const uri = itemDiv.getAttribute('data-item-uri') || '';
-                    const username = itemDiv.getAttribute('data-item-username') || '';
-                    const password = itemDiv.getAttribute('data-item-password') || '';
-                    const notes = itemDiv.getAttribute('data-item-notes') || '';
-                    openEditModal(itemId, itemName, folderId, uri, username, password, notes);
-                } else if (action === 'move') {
-                    const folderId = itemDiv.getAttribute('data-item-folder') || '';
-                    openMoveModal(itemId, itemName, folderId);
-                } else if (action === 'delete') {
-                    deleteItem(itemId, itemName);
-                } else if (action === 'toggle-favorite') {
-                    const currentFavorite = parseInt(itemDiv.getAttribute('data-item-favorite') || '0');
-                    toggleFavorite(itemId, currentFavorite);
-                }
-            });
-        })();
+                // Move to parent
+                target = target.parentNode;
+            }
+        });
 
         // Close modal when clicking outside
         window.onclick = function(event) {
