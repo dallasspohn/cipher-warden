@@ -16,7 +16,7 @@ from functools import wraps
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(32)
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=300)
 
 DB_PATH = 'passwords.db'
 
