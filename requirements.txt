@@ -1,0 +1,4 @@
+Flask==2.3.0
+# Add any other packages your app needs
+pyOpenSSL
+

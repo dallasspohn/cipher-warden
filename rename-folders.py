@@ -45,4 +45,4 @@ def manage_folders(db_name, password):
 
 if __name__ == "__main__":
     pw = getpass.getpass("Enter Database Key: ")
-    manage_folders("passwords.db", pw)
+    manage_folders("~/cipher-warden/passwords.db", pw)
