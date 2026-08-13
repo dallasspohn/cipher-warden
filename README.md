@@ -1,5 +1,5 @@
 # cipher-warden
-Cipher-warden is a secure replacement for your exported Bitwarden .json file.
+Cipher-warden is a secure local replacement for your exported Bitwarden .json file. Can run on phones.
 
 It is meant to be installed on a android phone in a termux terminal.
 But you can install it anywhere.
