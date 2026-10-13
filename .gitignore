@@ -208,3 +208,13 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Cipher Warden -- encrypted vault snapshots written by rekey.py and
+# set_master_password.py. These are full copies of your password database.
+backups/
+
+# Cipher Warden -- TLS material. The private key must never be committed, and
+# the certificate is machine-specific: regenerate it with tls/make-cert.sh.
+tls/*.key
+tls/*.crt
+*.pem

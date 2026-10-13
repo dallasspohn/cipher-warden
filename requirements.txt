@@ -1,4 +1,9 @@
 Flask==2.3.0
-# Add any other packages your app needs
+# Werkzeug 3.x removed __version__ and changed enough internals that it breaks
+# Flask 2.3.0's test_client. Pin to the 2.3.x line Flask 2.3.0 was built for.
+Werkzeug>=2.3.7,<3
 pyOpenSSL
-
+# The vault uses SQLCipher, which is a C extension and must come from the
+# system libsqlcipher-dev package:
+#   sudo apt install libsqlcipher-dev
+pysqlcipher3

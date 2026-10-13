@@ -1,0 +1,40 @@
+# /etc/systemd/system/cipher-warden.service
+#
+# Optional system-level variant, for when you want cipher-warden to sit
+# alongside the alex-* units and start at multi-user.target instead of
+# through the user manager. The user unit at
+# ~/.config/systemd/user/cipher-warden.service already boots fine on its own
+# (linger=yes), so this is only for consistency of layout.
+#
+# Install:
+#   sudo cp ~/cipher-warden/deploy/cipher-warden.service /etc/systemd/system/
+#   sudo systemctl disable --now cipher-warden.service        # user unit
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now cipher-warden.service         # system unit
+#   sudo systemctl status cipher-warden.service
+#
+# WorkingDirectory is load-bearing: password-manager.py uses the relative
+# DB_PATH = 'passwords.db' and bails out if it isn't found.
+[Unit]
+Description=Cipher Warden - encrypted local password manager (Flask, :5000)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=dallas
+Group=dallas
+WorkingDirectory=/home/dallas/cipher-warden
+Environment="PATH=/home/dallas/cipher-warden/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/home/dallas/cipher-warden/venv/bin/python /home/dallas/cipher-warden/password-manager.py
+Restart=always
+RestartSec=10
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

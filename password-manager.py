@@ -13,18 +13,168 @@ import uuid
 import string
 from datetime import timedelta, datetime
 from functools import wraps
+import threading
+import time
+
+# ---------------------------------------------------------------------------
+# Security hardening (2026-10-13). Rationale for each block is in SECURITY.md.
+# ---------------------------------------------------------------------------
+
+TLS_ENABLED = os.environ.get('CW_TLS', '1') == '1'
+BIND_HOST = os.environ.get('CW_HOST', '0.0.0.0')
+BIND_PORT = int(os.environ.get('CW_PORT', '5000'))
+TLS_CERT = os.environ.get('CW_TLS_CERT', 'tls/cipher-warden.crt')
+TLS_KEY = os.environ.get('CW_TLS_KEY', 'tls/cipher-warden.key')
+
+# Real idle timeout. The README claimed 30 minutes; the old code actually set
+# 30000 minutes (~21 days). Thirty minutes is what the docs have always said.
+SESSION_IDLE_SECONDS = int(os.environ.get('CW_IDLE_SECONDS', '1800'))
+
+# Login throttling, per client IP.
+LOGIN_MAX_FAILURES = int(os.environ.get('CW_MAX_FAILURES', '5'))
+LOGIN_WINDOW_SECONDS = int(os.environ.get('CW_LOGIN_WINDOW', '300'))
+LOGIN_BACKOFF_SECONDS = int(os.environ.get('CW_BACKOFF', '30'))
 
 app = Flask(__name__)
+# Regenerated on every process start. That is deliberate: it means any cookie
+# minted before a restart is cryptographically dead afterwards, which pairs with
+# the in-memory server-side session store below.
 app.secret_key = secrets.token_hex(32)
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30000)
+app.config.update(
+    PERMANENT_SESSION_LIFETIME=timedelta(seconds=SESSION_IDLE_SECONDS),
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Strict',
+    # Only safe to set when we are actually serving TLS; otherwise the browser
+    # silently drops the cookie and login appears to do nothing.
+    SESSION_COOKIE_SECURE=TLS_ENABLED,
+)
 
-DB_PATH = 'passwords.db'
+DB_PATH = os.environ.get('CW_DB', 'passwords.db')
+
+# ---------------------------------------------------------------------------
+# Server-side session store.
+#
+# The old code did session['db_password'] = password. Flask sessions are a
+# client-side SIGNED cookie -- signed, not encrypted -- so that put the master
+# password in the browser in recoverable plaintext. The cookie now carries only
+# an opaque token; the master password never leaves this process.
+# ---------------------------------------------------------------------------
+_SESSIONS = {}        # token -> {'password': str, 'last_seen': float}
+_SESSIONS_LOCK = threading.Lock()
+_LOGIN_FAILURES = {}  # client ip -> [failure timestamps]
+_FAILURES_LOCK = threading.Lock()
+
+
+def _sweep_expired(now=None):
+    """Drop idle sessions. Called opportunistically on each authenticated hit."""
+    now = time.time() if now is None else now
+    with _SESSIONS_LOCK:
+        dead = [t for t, s in _SESSIONS.items()
+                if now - s['last_seen'] > SESSION_IDLE_SECONDS]
+        for t in dead:
+            del _SESSIONS[t]
+
+
+def create_server_session(password):
+    token = secrets.token_urlsafe(32)
+    with _SESSIONS_LOCK:
+        _SESSIONS[token] = {'password': password, 'last_seen': time.time()}
+    return token
+
+
+def resolve_session():
+    """Return the master password for this request, or None if not signed in.
+
+    Touches last_seen so the timeout is an idle timeout, not an absolute one.
+    """
+    token = session.get('token')
+    if not token:
+        return None
+    _sweep_expired()
+    with _SESSIONS_LOCK:
+        record = _SESSIONS.get(token)
+        if record is None:
+            return None
+        record['last_seen'] = time.time()
+        return record['password']
+
+
+def destroy_session():
+    token = session.pop('token', None)
+    if token:
+        with _SESSIONS_LOCK:
+            _SESSIONS.pop(token, None)
+
+
+def end_session():
+    """Clear the browser cookie AND drop the server-side record behind it."""
+    destroy_session()
+    session.clear()
+
+
+def client_ip():
+    # request.remote_addr, not a spoofable header.
+    return request.remote_addr or 'unknown'
+
+
+def login_locked_out():
+    """True when this IP is currently serving a backoff."""
+    now = time.time()
+    with _FAILURES_LOCK:
+        stamps = _LOGIN_FAILURES.get(client_ip(), [])
+        recent = [t for t in stamps if now - t < LOGIN_WINDOW_SECONDS]
+        _LOGIN_FAILURES[client_ip()] = recent
+        if len(recent) >= LOGIN_MAX_FAILURES:
+            newest = max(recent)
+            remaining = LOGIN_BACKOFF_SECONDS - (now - newest)
+            if remaining > 0:
+                return int(remaining) + 1
+            # Backoff elapsed; let them try again but keep the history so the
+            # next failure immediately re-arms the lockout.
+            return 0
+    return 0
+
+
+def record_login_failure():
+    with _FAILURES_LOCK:
+        _LOGIN_FAILURES.setdefault(client_ip(), []).append(time.time())
+
+
+def clear_login_failures():
+    with _FAILURES_LOCK:
+        _LOGIN_FAILURES.pop(client_ip(), None)
+
+
+@app.before_request
+def enforce_csrf():
+    """Reject state-changing requests without the per-session CSRF token."""
+    if request.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
+        return None
+    expected = session.get('csrf')
+    if not expected:
+        return ('CSRF token missing. Reload the page and try again.', 403)
+    supplied = request.form.get('csrf_token') or request.headers.get('X-CSRF-Token')
+    if not supplied or not secrets.compare_digest(str(supplied), str(expected)):
+        return ('CSRF token mismatch. Reload the page and try again.', 403)
+    return None
+
+
+@app.context_processor
+def inject_csrf():
+    """Make a CSRF token available to every template, created on demand."""
+    token = session.get('csrf')
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session['csrf'] = token
+    return {'csrf_token': token}
+
 
 # Session timeout decorator
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'authenticated' not in session:
+        if resolve_session() is None:
+            session.clear()
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
@@ -32,9 +182,17 @@ def login_required(f):
 
 def get_db_connection(password):
     """Connect to encrypted database"""
+    if not password:
+        return None
     try:
         conn = sqlcipher.connect(DB_PATH)
-        conn.execute(f"PRAGMA key = '{password}'")
+        # PRAGMA does not accept bind parameters, so the value has to be
+        # inlined -- which means the single quotes must be escaped by hand.
+        # Unescaped, any master password containing an apostrophe could never
+        # authenticate. SQLCipher keys are binary data, so they may also
+        # contain a NUL; trim it the way the rest of the code assumes.
+        key = password.replace("'", "''").replace('\x00', '')
+        conn.execute(f"PRAGMA key = '{key}'")
         conn.execute("PRAGMA cipher_compatibility = 4")
         # Test connection by running a simple query
         conn.execute("SELECT COUNT(*) FROM folders")
@@ -163,6 +321,7 @@ LOGIN_TEMPLATE = """
         <div class="error">{{ error }}</div>
         {% endif %}
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <div class="form-group">
                 <label for="password">Master Password</label>
                 <input type="password" id="password" name="password" autofocus required>
@@ -670,6 +829,7 @@ MAIN_TEMPLATE = """
         <div class="modal-content">
             <div class="modal-header">➕ Add New Password</div>
             <form method="POST" action="{{ url_for('add_item') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <div class="form-group">
                     <label for="name">Name *</label>
                     <input type="text" id="name" name="name" required>
@@ -722,6 +882,7 @@ MAIN_TEMPLATE = """
         <div class="modal-content">
             <div class="modal-header">✏️ Edit Password</div>
             <form method="POST" action="{{ url_for('edit_item') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="hidden" id="editItemId" name="item_id">
                 <div class="form-group">
                     <label for="editName">Name *</label>
@@ -768,6 +929,7 @@ MAIN_TEMPLATE = """
         <div class="modal-content">
             <div class="modal-header">📁 Move Password</div>
             <form method="POST" action="{{ url_for('move_item') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input type="hidden" id="moveItemId" name="item_id">
                 <div class="form-group">
                     <label>Moving: <strong id="moveItemName"></strong></label>
@@ -900,6 +1062,7 @@ MAIN_TEMPLATE = """
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': '{{ csrf_token }}',
                 },
                 body: JSON.stringify({
                     item_id: itemId,
@@ -917,6 +1080,7 @@ MAIN_TEMPLATE = """
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'X-CSRF-Token': '{{ csrf_token }}',
                         },
                         body: JSON.stringify({
                             item_id: itemId
@@ -999,7 +1163,7 @@ MAIN_TEMPLATE = """
 
 @app.route('/')
 def index():
-    if 'authenticated' not in session:
+    if resolve_session() is None:
         return redirect(url_for('login'))
     return redirect(url_for('dashboard'))
 
@@ -1007,18 +1171,29 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        wait_seconds = login_locked_out()
+        if wait_seconds:
+            return render_template_string(
+                LOGIN_TEMPLATE,
+                error=f'Too many failed attempts. Try again in {wait_seconds}s.'
+            ), 429
+
         password = request.form.get('password')
 
         # Try to connect to database
         conn = get_db_connection(password)
         if conn:
-            session['authenticated'] = True
-            session['db_password'] = password
-            session.permanent = True
             conn.close()
+            clear_login_failures()
+            # The master password goes into the in-process store. The cookie
+            # only ever receives an opaque token.
+            session['token'] = create_server_session(password)
+            session['authenticated'] = True
+            session.permanent = True
             return redirect(url_for('dashboard'))
         else:
-            return render_template_string(LOGIN_TEMPLATE, error='Invalid master password')
+            record_login_failure()
+            return render_template_string(LOGIN_TEMPLATE, error='Invalid master password'), 401
 
     return render_template_string(LOGIN_TEMPLATE)
 
@@ -1026,11 +1201,11 @@ def login():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    password = session.get('db_password')
+    password = resolve_session()
     conn = get_db_connection(password)
 
     if not conn:
-        session.clear()
+        end_session()
         return redirect(url_for('login'))
 
     cursor = conn.cursor()
@@ -1078,11 +1253,11 @@ def dashboard():
 @app.route('/add_item', methods=['POST'])
 @login_required
 def add_item():
-    password = session.get('db_password')
+    password = resolve_session()
     conn = get_db_connection(password)
 
     if not conn:
-        session.clear()
+        end_session()
         return redirect(url_for('login'))
 
     cursor = conn.cursor()
@@ -1122,11 +1297,11 @@ def add_item():
 @app.route('/edit_item', methods=['POST'])
 @login_required
 def edit_item():
-    password = session.get('db_password')
+    password = resolve_session()
     conn = get_db_connection(password)
 
     if not conn:
-        session.clear()
+        end_session()
         return redirect(url_for('login'))
 
     cursor = conn.cursor()
@@ -1161,11 +1336,11 @@ def edit_item():
 @app.route('/move_item', methods=['POST'])
 @login_required
 def move_item():
-    password = session.get('db_password')
+    password = resolve_session()
     conn = get_db_connection(password)
 
     if not conn:
-        session.clear()
+        end_session()
         return redirect(url_for('login'))
 
     cursor = conn.cursor()
@@ -1190,7 +1365,7 @@ def move_item():
 @app.route('/toggle_favorite', methods=['POST'])
 @login_required
 def toggle_favorite():
-    password = session.get('db_password')
+    password = resolve_session()
     conn = get_db_connection(password)
 
     if not conn:
@@ -1217,7 +1392,7 @@ def toggle_favorite():
 @app.route('/delete_item', methods=['POST'])
 @login_required
 def delete_item():
-    password = session.get('db_password')
+    password = resolve_session()
     conn = get_db_connection(password)
 
     if not conn:
@@ -1241,7 +1416,7 @@ def delete_item():
 
 @app.route('/logout')
 def logout():
-    session.clear()
+    end_session()
     return redirect(url_for('login'))
 
 
@@ -1251,15 +1426,34 @@ if __name__ == '__main__':
         print("Run import_bitwarden.py first to create the database.")
         exit(1)
 
-    print("\n" + "="*60)
-    print("🔐 Password Manager Starting...")
-    print("="*60)
-    print("\nAccess the password manager at:")
-    print("  • From this device: http://127.0.0.1:5000")
-    print("  • From local network: http://<phone-ip>:5000")
-    print("\nTo find your phone's IP address:")
-    print("  ifconfig wlan0 | grep inet")
-    print("\n" + "="*60 + "\n")
+    scheme = 'https' if TLS_ENABLED else 'http'
+    print("\n" + "=" * 60)
+    print("🔐 Cipher Warden Starting...")
+    print("=" * 60)
+    print(f"\n  Listening on {BIND_HOST}:{BIND_PORT} ({scheme.upper()})")
+    print(f"  From this device:   {scheme}://127.0.0.1:{BIND_PORT}")
+    print(f"  From local network: {scheme}://<this-host-ip>:{BIND_PORT}")
+    if TLS_ENABLED:
+        print("\n  The certificate is self-signed, so your browser will warn")
+        print("  once. That warning is expected -- the connection is still")
+        print("  encrypted, and the point is that nothing crosses the wire")
+        print("  in the clear.")
+    else:
+        print("\n  ⚠ TLS IS OFF. Master password and every secret inside the")
+        print("  vault will cross the network in plaintext. Set CW_TLS=0 only")
+        print("  if you have TLS terminated in front of this port.")
+    print(f"\n  Idle timeout: {SESSION_IDLE_SECONDS // 60} minutes")
+    print(f"  Lockout: {LOGIN_MAX_FAILURES} failures within "
+          f"{LOGIN_WINDOW_SECONDS // 60} min → {LOGIN_BACKOFF_SECONDS}s backoff")
+    print("\n" + "=" * 60 + "\n")
 
-    # Bind to 0.0.0.0 to allow network access
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    ssl_context = None
+    if TLS_ENABLED:
+        if not (os.path.exists(TLS_CERT) and os.path.exists(TLS_KEY)):
+            print(f"Error: TLS cert/key not found at {TLS_CERT} / {TLS_KEY}")
+            print("Run:  bash tls/make-cert.sh")
+            exit(1)
+        ssl_context = (TLS_CERT, TLS_KEY)
+
+    app.run(host=BIND_HOST, port=BIND_PORT, debug=False,
+            threaded=True, ssl_context=ssl_context)
